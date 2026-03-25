@@ -173,8 +173,10 @@ section "1/$TOTAL_STEPS — System Update & Base Packages"
 
 sudo dnf upgrade -y --refresh -q
 
-# Development tools group replaces Debian's build-essential
-sudo dnf groupinstall -y -q "Development Tools"
+# Development tools group replaces Debian's build-essential.
+# dnf5 (Fedora 41+) dropped the 'groupinstall' subcommand.
+# The @group syntax works on both dnf4 and dnf5.
+sudo dnf install -y -q @development-tools
 
 BASE_PKGS=(
   curl
@@ -200,7 +202,7 @@ BASE_PKGS=(
   findutils                # xargs, find
   procps-ng                # ps, top, etc.
   util-linux               # lsblk, etc.
-  dnf-plugins-core         # dnf config-manager
+  dnf5-plugins              # config-manager, copr, etc. (dnf5 replaces dnf-plugins-core)
 )
 
 info "Installing base packages..."
