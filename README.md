@@ -1,0 +1,212 @@
+# Workstation Bootstrap
+
+Single-command scripts that turn a fresh Linux environment into a fully configured cloud infrastructure development workstation. Three variants, same tools, same prompt, same workflow.
+
+```
+workstation-bootstrap/
+├── setup-crostini-lab.sh          # Chromebook Crostini (Debian container)
+├── setup-xubuntu-workstation.sh   # Xubuntu 24.04 LTS VM (Proxmox)
+├── setup-fedora-workstation.sh    # Fedora KDE Plasma VM (Proxmox)
+├── README.md
+└── LICENSE
+```
+
+## Quick start
+
+Pick the script that matches your environment and run it:
+
+**Chromebook (Crostini):**
+```bash
+curl -sL https://raw.githubusercontent.com/PitziLabs/workstation-bootstrap/main/setup-crostini-lab.sh | bash
+```
+
+**Xubuntu 24.04 VM:**
+```bash
+curl -sL https://raw.githubusercontent.com/PitziLabs/workstation-bootstrap/main/setup-xubuntu-workstation.sh | bash
+```
+
+**Fedora KDE Plasma VM:**
+```bash
+curl -sL https://raw.githubusercontent.com/PitziLabs/workstation-bootstrap/main/setup-fedora-workstation.sh | bash
+```
+
+Add `GH_TOKEN=ghp_xxx` before `bash` for fully unattended runs with GitHub auth and automatic repo cloning.
+
+## What they install
+
+Every script installs the same toolchain:
+
+| Category | Tools |
+|---|---|
+| **Languages** | Python 3 + pip + venv, Node.js LTS (via nvm), Go, Bash |
+| **Cloud & IaC** | AWS CLI v2, Granted (account switching), Terraform + tfswitch, kubectl, eksctl, Helm |
+| **Containers** | Docker (see variant differences below) |
+| **Dev tools** | VS Code (with extensions + settings), Claude Code, GitHub CLI, git (configured) |
+| **CLI tools** | jq, yq, bat, ripgrep, fd-find, fzf, tree, tmux, shellcheck, direnv, pipx, tldr |
+| **Networking** | dig/nslookup, net-tools, traceroute, nmap, whois |
+| **Shell** | Starship prompt (custom config), aliases, functions, direnv |
+| **Your code** | Auto-clones all your GitHub repos into `~/repos/` |
+
+## How they differ
+
+The scripts share ~80% of their code. The differences are driven by what each environment can and can't do.
+
+| Area | Crostini | Xubuntu VM | Fedora KDE VM |
+|---|---|---|---|
+| **Package manager** | `apt-get` (Debian) | `apt-get` (Ubuntu) | `dnf` (Fedora RPM) |
+| **Docker** | CLI-only (no daemon) | Full engine + daemon | Full engine + daemon (replaces podman) |
+| **Remote desktop** | N/A (local terminal) | XRDP + XFCE | XRDP + KDE Plasma X11 |
+| **SSH server** | No | Yes | Yes |
+| **SELinux** | No | No | Enforcing (xrdp policy configured) |
+| **Firewall** | None | None (ufw not default) | firewalld (port 3389 opened) |
+| **Polkit rules** | N/A | `.pkla` format | JavaScript `.rules` format |
+| **Compositor fix** | N/A | xfwm4 XML | KWin `kwinrc` |
+| **Wayland** | N/A | N/A (X11 default) | Forced to X11 for XRDP |
+| **VM integration** | N/A | qemu-guest-agent | qemu-guest-agent |
+| **Starship install** | `~/.local/bin` (broken sudo workaround) | `/usr/local/bin` | `/usr/local/bin` |
+| **bat/fd names** | `batcat`/`fdfind` (Debian conflict) | `batcat`/`fdfind` (Ubuntu conflict) | `bat`/`fd` (clean) |
+| **Granted install** | APT repo | APT repo | Binary download (no DNF repo) |
+| **Steps** | 15 | 16 | 16 |
+
+### When to use which
+
+- **Crostini** — You're on a Chromebook and want a local dev environment. Lightweight, disposable, no Docker daemon (point `DOCKER_HOST` at a remote). Start here.
+- **Xubuntu** — You have a Proxmox host (or any hypervisor) and want a persistent workhorse VM with full Docker. XFCE is lighter on resources. Good default.
+- **Fedora KDE** — You want KDE Plasma's desktop, Fedora's fresh packages, and SELinux enforcing by default. Slightly heavier, more opinionated, better desktop experience for power users.
+
+## Why this exists
+
+I'm a systems architect who works from a Chromebook. My Linux environments are disposable — ChromeOS updates corrupt Crostini, VMs get rebuilt, hypervisors get reinstalled. Instead of spending half a day manually configuring tools, I run one command and go get coffee.
+
+**The philosophy: the script is the source of truth, not the machine.** Your dev environment is cattle, not a pet. Same principle you'd apply to any infrastructure you manage.
+
+The day after finishing the Crostini script, my VM refused to start. Corrupted metadata. Unrecoverable. Deleted everything, re-enabled Linux, ran `curl | bash`, and was back in fifteen minutes. The script paid for itself in under 24 hours.
+
+## Customization
+
+All scripts accept the same environment variables:
+
+| Variable | Default | Description |
+|---|---|---|
+| `GH_TOKEN` | *(none)* | GitHub PAT — enables non-interactive auth and repo cloning |
+| `GIT_NAME` | *(auto-detected)* | Git commit author name — from gh profile, git config, or prompt |
+| `GIT_EMAIL` | *(auto-detected)* | Git commit author email — from gh profile, git config, or prompt |
+| `GITHUB_USER` | *(auto-detected)* | GitHub username for repo cloning — from gh auth session |
+| `REPOS_DIR` | `~/repos` | Where to clone repos |
+
+All identity values are auto-detected from your GitHub profile after authentication. You only need environment variables if you want to override defaults or run fully unattended.
+
+## The Starship prompt
+
+All three scripts install the same custom [Starship](https://starship.rs) prompt designed for infrastructure work:
+
+```
+ main [!] 💠 default ☁️  aws-lab (us-east-1) took 9s
+~/repos/aws-lab-infra/environments/dev ❯
+```
+
+- **Line 1 (context):** Git branch + dirty status, Terraform workspace, AWS profile + region, k8s context, Docker context, command duration — only appears when relevant
+- **Line 2 (working line):** Hostname + full absolute path + cursor
+
+When there's no active context, it collapses to a single line:
+
+```
+~ ❯
+```
+
+The VM variants (Xubuntu, Fedora) add a Docker context module and show the hostname (useful when SSH'd in from the Chromebook).
+
+## Shell functions included
+
+All three scripts install the same functions:
+
+- **`projects`** — Lists all repos in `~/repos/` with current branch and dirty status
+- **`pull-all`** — Runs `git pull --rebase` on every repo in `~/repos/`
+- **`venv [name]`** — Creates and activates a Python venv in one step
+- **`mkcd <dir>`** — `mkdir -p` + `cd` combined
+
+## VS Code configuration
+
+Same across all variants:
+
+**Extensions:** HashiCorp Terraform + HCL, Docker, AWS Toolkit, Python, Go, Claude Code, YAML (Red Hat), GitLens, ShellCheck, Remote SSH
+
+**Settings highlights:**
+- Autosave on focus change (switch to terminal → file saves)
+- Format on save with Terraform formatter wired to HashiCorp extension
+- Trim trailing whitespace + insert final newline
+- Telemetry disabled
+- 15px font, 2-space tabs, bracket pair colorization
+
+## Design decisions (and the bugs that informed them)
+
+These scripts were developed through iterative field testing on real hardware. Every design choice has a story.
+
+### Shared across all scripts
+
+**PATH bootstrapping** — The single biggest lesson from the Crostini version. Tools installed during the script need to be findable *during the script*, not just after `.bashrc` is sourced. All three scripts bootstrap PATH at the very top before any installs happen.
+
+**nvm triple-fix** — The nvm installer has three gotchas on a fresh VM: (1) `$NVM_DIR` must exist before the installer runs, (2) source nvm *after* install not before, (3) `PROFILE=/dev/null` prevents duplicate `.bashrc` entries.
+
+**The `set -e` arithmetic trap** — In bash, `((count++))` returns exit code 1 when `count` is 0, which kills `set -e`. All scripts use `((count++)) || true`.
+
+**Clone via HTTPS, not SSH** — Fresh VMs don't have SSH keys. `gh auth setup-git` configures HTTPS auth through the GitHub CLI. One less thing to manage.
+
+### Crostini-specific
+
+**Crostini's broken sudo** — Third-party install scripts that invoke `sudo` internally hit a password prompt on Crostini. Workaround: install to `~/.local/bin` instead of `/usr/local/bin`.
+
+### Xubuntu-specific
+
+**XRDP: TLS key permissions** — xrdp runs as user `xrdp`, which can't read the snakeoil SSL key without being in the `ssl-cert` group.
+
+**XRDP: D-Bus session collision** — If a local XFCE session is running, the RDP session inherits its D-Bus address and fails. Fix: unset `DBUS_SESSION_BUS_ADDRESS` in startwm.sh.
+
+**XRDP: XFCE compositor + software GL** — xfwm4 enables OpenGL compositing by default, falls back to llvmpipe on a VM, and crashes at high resolutions. Fix: disable compositing via xfconf XML.
+
+### Fedora-specific
+
+**The podman conflict** — Fedora ships podman as the default `docker` command. The script removes podman/buildah before installing Docker CE. Deliberate trade-off: the AWS/ECS/ECR toolchain assumes Docker.
+
+**SELinux and XRDP** — The #1 reason XRDP "works on Ubuntu but not Fedora." The script sets SELinux booleans, registers port types, and generates local policy modules from audit denials. Belt and suspenders because SELinux denial symptoms (silent drops, black screens, misleading error messages) don't point at SELinux as the cause.
+
+**KDE Plasma: Wayland trap** — Fedora KDE defaults to Wayland via SDDM. XRDP can't render Wayland. The startwm.sh forces `startplasma-x11` with `XDG_SESSION_TYPE=x11`.
+
+**KWin compositor** — Same software-GL-at-high-resolution problem as XFCE, different config mechanism (`kwinrc` instead of xfconf XML).
+
+**Polkit rules format** — Fedora deprecated `.pkla` in favor of JavaScript `.rules` files.
+
+**firewalld** — Fedora runs it by default. Without opening port 3389, XRDP installs perfectly and nothing connects.
+
+**Granted: no DNF repo** — Common Fate maintains an APT repo but not a DNF repo. The Fedora script downloads the binary directly from GitHub releases.
+
+**`dnf config-manager` syntax change** — Fedora 41+ changed the subcommand format. The script tries both old and new syntax.
+
+## Idempotent
+
+All three scripts are safe to re-run at any time. Each checks for existing installations before doing anything, and the `.bashrc` configuration block is replaced cleanly on each run (bounded by marker comments). The Xubuntu and Fedora scripts also clean up markers from the other variants if you're migrating between environments.
+
+## Requirements
+
+**Crostini:**
+- Chromebook with Crostini support (most devices from 2019+)
+- Linux development environment enabled (Settings → Developers → Turn on)
+- ~10 minutes and an internet connection
+
+**Xubuntu VM:**
+- Proxmox VE host (or any hypervisor)
+- Xubuntu 24.04 LTS installed as a VM
+- At least 2 vCPUs, 8 GiB RAM, 50 GiB disk recommended
+
+**Fedora KDE VM:**
+- Proxmox VE host (or any hypervisor)
+- Fedora KDE Plasma installed as a VM (KDE Spin ISO or Fedora Everything + KDE group)
+- At least 2 vCPUs, 8 GiB RAM, 50 GiB disk recommended
+
+## Credits
+
+Built iteratively with [Claude](https://claude.ai) (Anthropic) through multi-day pair-programming sessions that included real-time field testing on actual Chromebook and Proxmox hardware. Seven bug fixes in the Crostini version, three layers of XRDP debugging in the Xubuntu version, and SELinux/KDE/Wayland adaptation for the Fedora version — each discovered on real hardware, each baked into the scripts so nobody else has to debug them.
+
+## License
+
+MIT License — see [LICENSE](LICENSE).
