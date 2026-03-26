@@ -4,7 +4,7 @@
 # Fedora KDE Plasma on Proxmox VM — DevOps workstation bootstrap
 #
 # Author:  Chris Pitzi — PitziLabs (https://github.com/PitziLabs)
-# Updated: 2026-03-25
+# Updated: 2026-03-26
 #
 # Lineage: Forked from setup-xubuntu-workstation.sh v1, which was forked from
 #          setup-crostini-lab.sh v4. The Crostini version targets Chromebook
@@ -906,7 +906,7 @@ $kubernetes\
 $docker_context\
 $cmd_duration\
 $line_break\
-$hostname$directory\
+$os$hostname$directory\
 $character"""
 
 [character]
@@ -965,6 +965,18 @@ format = "[$symbol$context]($style) "
 symbol = "🐳 "
 style = "blue"
 only_with_files = true
+
+# --- OS: distro icon, auto-detected ----------------------------------------
+[os]
+disabled = false
+format = "$symbol"
+style = "bold dimmed green"
+
+[os.symbols]
+Debian = "🐧 "
+Ubuntu = "🟠 "
+Fedora = "🎩 "
+Linux = "🐧 "
 
 [cmd_duration]
 min_time = 3_000
