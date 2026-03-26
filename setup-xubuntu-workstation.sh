@@ -4,7 +4,7 @@
 # Xubuntu 24.04 LTS on Proxmox VM — DevOps workstation bootstrap
 #
 # Author:  Chris Pitzi — PitziLabs (https://github.com/PitziLabs)
-# Updated: 2026-03-23
+# Updated: 2026-03-26
 #
 # Lineage: Forked from setup-crostini-lab.sh v4. That script was built for
 #          Chromebook Crostini (Debian container). This version targets a
@@ -481,6 +481,10 @@ if ! command_exists code; then
     https://packages.microsoft.com/repos/code stable main" | \
     sudo tee /etc/apt/sources.list.d/vscode.list >/dev/null
   sudo apt-get update -qq
+  # Pre-seed debconf to avoid interactive prompt about adding Microsoft repo.
+  # The package's postinst script asks this via debconf even with -y.
+  # See: https://code.visualstudio.com/docs/setup/linux
+  echo "code code/add-microsoft-repo boolean true" | sudo debconf-set-selections
   sudo apt-get install -y -qq code
 fi
 require code "VS Code"
@@ -859,7 +863,7 @@ $kubernetes\
 $docker_context\
 $cmd_duration\
 $line_break\
-$hostname$directory\
+$os$hostname$directory\
 $character"""
 
 [character]
@@ -920,6 +924,18 @@ format = "[$symbol$context]($style) "
 symbol = "🐳 "
 style = "blue"
 only_with_files = true
+
+# --- OS: distro icon, auto-detected ----------------------------------------
+[os]
+disabled = false
+format = "$symbol"
+style = "bold dimmed green"
+
+[os.symbols]
+Debian = "🐧 "
+Ubuntu = "🟠 "
+Fedora = "🎩 "
+Linux = "🐧 "
 
 [cmd_duration]
 min_time = 3_000
