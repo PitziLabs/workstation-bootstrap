@@ -4,7 +4,7 @@
 # Chromebook Crostini (Debian) bootstrap for ops/dev homelab work
 #
 # Author:  Chris Pitzi — PitziLabs (https://github.com/PitziLabs)
-# Updated: 2026-03-20
+# Updated: 2026-03-26
 #
 # Usage:
 #   Interactive:      bash setup-crostini-lab.sh
@@ -498,6 +498,10 @@ if ! command_exists code; then
     https://packages.microsoft.com/repos/code stable main" | \
     sudo tee /etc/apt/sources.list.d/vscode.list >/dev/null
   sudo apt-get update -qq
+  # Pre-seed debconf to avoid interactive prompt about adding Microsoft repo.
+  # The package's postinst script asks this via debconf even with -y.
+  # See: https://code.visualstudio.com/docs/setup/linux
+  echo "code code/add-microsoft-repo boolean true" | sudo debconf-set-selections
   sudo apt-get install -y -qq code
 fi
 require code "VS Code"
@@ -890,7 +894,7 @@ $aws\
 $kubernetes\
 $cmd_duration\
 $line_break\
-$hostname$directory\
+$os$hostname$directory\
 $character"""
 
 # --- Prompt character -------------------------------------------------------
@@ -967,6 +971,18 @@ disabled = false       # starship disables k8s by default; we want it
 format = '[$symbol$context( \($namespace\))]($style) '
 symbol = "⎈ "
 style = "bold blue"
+
+# --- OS: distro icon, auto-detected ----------------------------------------
+[os]
+disabled = false
+format = "$symbol"
+style = "bold dimmed green"
+
+[os.symbols]
+Debian = "🐧 "
+Ubuntu = "🟠 "
+Fedora = "🎩 "
+Linux = "🐧 "
 
 # --- Command duration: only shows for commands > 3 seconds -----------------
 [cmd_duration]
