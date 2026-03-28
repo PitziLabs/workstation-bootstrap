@@ -137,6 +137,10 @@ else
   info "Mode: non-interactive (piped, no GH_TOKEN)"
 fi
 
+# Harvest sudo credentials up front so the password prompt doesn't ambush
+# us mid-install when the credential cache expires.
+sudo -v
+
 # --- 1. System update & base packages --------------------------------------
 section "1/$TOTAL_STEPS — System Update & Base Packages"
 
@@ -894,7 +898,7 @@ $aws\
 $kubernetes\
 $cmd_duration\
 $line_break\
-$os$hostname$directory\
+${custom.os}$hostname$directory\
 $character"""
 
 # --- Prompt character -------------------------------------------------------
@@ -972,17 +976,12 @@ format = '[$symbol$context( \($namespace\))]($style) '
 symbol = "⎈ "
 style = "bold blue"
 
-# --- OS: distro icon, auto-detected ----------------------------------------
-[os]
-disabled = false
-format = "$symbol"
+# --- OS: distro + version from /etc/os-release ------------------------------
+[custom.os]
+command = '. /etc/os-release 2>/dev/null && echo "${ID} ${VERSION_ID}"'
+when = "true"
+format = "[$output]($style) "
 style = "bold dimmed green"
-
-[os.symbols]
-Debian = "🐧 "
-Ubuntu = "🟠 "
-Fedora = "🎩 "
-Linux = "🐧 "
 
 # --- Command duration: only shows for commands > 3 seconds -----------------
 [cmd_duration]
