@@ -102,18 +102,18 @@ All three scripts install the same custom [Starship](https://starship.rs) prompt
 
 ```
  main [!] 💠 default ☁️  aws-lab (us-east-1) took 9s
-🟠 xubuntu:~/repos/aws-lab-infra/environments/dev ❯
+ubuntu 24.04 xubuntu:~/repos/aws-lab-infra/environments/dev ❯
 ```
 
 - **Line 1 (context):** Git branch + dirty status, Terraform workspace, AWS profile + region, k8s context, Docker context, command duration — only appears when relevant
-- **Line 2 (working line):** OS distro icon + hostname + full absolute path + cursor
+- **Line 2 (working line):** OS distro + version, hostname, full absolute path, cursor
 
-The OS icon is auto-detected via Starship's `[os]` module: 🐧 Debian (Crostini), 🟠 Ubuntu (Xubuntu), 🎩 Fedora. When working across three environments, the icon tells you at a glance which package manager and system conventions apply.
+The OS label is pulled from `/etc/os-release` via a custom Starship module: `debian 12` (Crostini), `ubuntu 24.04` (Xubuntu), `fedora 41` (Fedora KDE). When working across three environments, the label tells you at a glance which package manager and system conventions apply.
 
 When there's no active context, it collapses to a single line:
 
 ```
-🐧 penguin:~ ❯
+debian 12 penguin:~ ❯
 ```
 
 The VM variants (Xubuntu, Fedora) add a Docker context module and show the hostname (useful when SSH'd in from the Chromebook).
@@ -154,7 +154,7 @@ These scripts were developed through iterative field testing on real hardware. E
 
 **Clone via HTTPS, not SSH** — Fresh VMs don't have SSH keys. `gh auth setup-git` configures HTTPS auth through the GitHub CLI. One less thing to manage.
 
-**OS module** — Starship's `[os]` module auto-detects the Linux distribution and shows an emoji icon in the prompt. When working across three environments (Chromebook Crostini, Xubuntu VM, Fedora VM), the icon provides instant visual context for which package manager and system conventions apply.
+**OS module** — A custom Starship module reads `/etc/os-release` to show the distro name and version (e.g. `debian 12`, `fedora 41`) in the prompt. Plain text — no emoji, no Nerd Font dependency. When working across three environments, the label tells you which package manager and system conventions apply.
 
 **VS Code debconf pre-seed** — The `code` .deb package asks via debconf whether to add Microsoft's APT repository. Even with `apt-get -y`, this debconf question blocks in non-interactive mode. Fix: `debconf-set-selections` pre-seeds the answer before install.
 
