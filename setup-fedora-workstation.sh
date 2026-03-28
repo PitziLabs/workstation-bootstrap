@@ -203,6 +203,7 @@ BASE_PKGS=(
   htop
   ncdu
   nano
+  nfs-utils                  # NFS client for mounting network shares
   findutils                # xargs, find
   procps-ng                # ps, top, etc.
   util-linux               # lsblk, etc.

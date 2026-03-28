@@ -176,6 +176,7 @@ BASE_PKGS=(
   htop
   ncdu
   nano
+  nfs-common                 # NFS client for mounting network shares
 )
 
 info "Installing base packages..."
