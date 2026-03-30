@@ -1,5 +1,0 @@
-# Stub file to exercise GitHub Actions workflows.
-# This is NOT an *.md, docs/**, LICENSE, or .gitignore — so it will
-# trigger the claude-code-review.yml paths filter on pull_request events.
-# Delete after verification.
-# Run 2: exercising updated claude_args with restricted toolset.
