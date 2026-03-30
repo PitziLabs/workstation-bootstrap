@@ -7,10 +7,12 @@
 # Updated: 2026-03-26
 #
 # Usage:
-#   Interactive:      bash setup-crostini-lab.sh
-#   Semi-automated:   GH_TOKEN=ghp_xxx bash setup-crostini-lab.sh
-#   Fully unattended: GH_TOKEN=ghp_xxx bash setup-crostini-lab.sh
-#   From a URL:       curl -sL <raw-url> | GH_TOKEN=ghp_xxx bash
+#   Quick start (download first — recommended):
+#     curl -sLO https://raw.githubusercontent.com/PitziLabs/workstation-bootstrap/main/setup-crostini-lab.sh
+#     GH_TOKEN=ghp_yourtoken bash setup-crostini-lab.sh
+#
+#   Or pipe directly (note: GH_TOKEN goes AFTER the pipe):
+#     curl -sL https://raw.githubusercontent.com/PitziLabs/workstation-bootstrap/main/setup-crostini-lab.sh | GH_TOKEN=ghp_yourtoken bash
 #
 # Environment variables (all optional — auto-detected when possible):
 #   GH_TOKEN        GitHub personal access token (scopes: repo, read:org)
@@ -158,7 +160,7 @@ sudo -v
 WS_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/workstation-bootstrap"
 if [[ ! -f "$WS_CONFIG_DIR/config" ]]; then
   mkdir -p "$WS_CONFIG_DIR"
-  cat > "$WS_CONFIG_DIR/config" << 'WS_CONF'
+  cat > "$WS_CONFIG_DIR/config" << WS_CONF
 # ============================================================================
 # Workstation bootstrap config — sourced by setup-*-workstation.sh scripts
 # Location: ~/.config/workstation-bootstrap/config
@@ -172,12 +174,12 @@ if [[ ! -f "$WS_CONFIG_DIR/config" ]]; then
 # Set this to also clone all repos from a GitHub organization during
 # bootstrap. Leave empty to only clone your personal repos.
 # The bootstrap script clones BOTH personal and org repos when set.
-#GITHUB_ORG=""
+$(if [[ -n "\${GITHUB_ORG:-}" ]]; then echo "GITHUB_ORG=\"\$GITHUB_ORG\""; else echo "#GITHUB_ORG=\"\""; fi)
 
 # --- Default owner for new repos ------------------------------------------
 # Used by the 'ghnew' alias to default gh repo create to this owner.
 # Leave empty to default to your personal account.
-#GITHUB_DEFAULT_OWNER=""
+$(if [[ -n "\${GITHUB_DEFAULT_OWNER:-}" ]]; then echo "GITHUB_DEFAULT_OWNER=\"\$GITHUB_DEFAULT_OWNER\""; else echo "#GITHUB_DEFAULT_OWNER=\"\""; fi)
 WS_CONF
   info "Created workstation config at $WS_CONFIG_DIR/config"
   info "Edit this file to set your GitHub org and other preferences."
@@ -285,6 +287,8 @@ mkdir -p "$NVM_DIR"
 
 if [[ ! -s "$NVM_DIR/nvm.sh" ]]; then
   info "Installing nvm..."
+  # Ensure .bashrc exists so nvm's installer doesn't complain about missing profile
+  touch "$HOME/.bashrc"
   # [BUG FIX v3] PROFILE=/dev/null prevents the installer from appending
   # source lines to .bashrc. We manage our own .bashrc block in step 13.
   curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | \
@@ -491,7 +495,7 @@ if ! gh auth status &>/dev/null; then
     # No token — skip. User can run gh auth login manually.
     warn "GitHub CLI is not authenticated."
     info "Run 'gh auth login' after setup to enable repo cloning."
-    info "Or re-run with: GH_TOKEN=ghp_xxx bash $0"
+    info "Or re-run with: GH_TOKEN=ghp_xxx bash $(basename "$0")"
   fi
 fi
 
@@ -687,7 +691,7 @@ section "12/$TOTAL_STEPS — Claude Code"
 
 if ! command_exists claude; then
   info "Installing Claude Code..."
-  npm install -g @anthropic-ai/claude-code
+  npm install -g --no-update-notifier @anthropic-ai/claude-code
 fi
 
 if command_exists claude; then
@@ -752,7 +756,8 @@ fi
 # of this script in the PATH bootstrap section.
 if ! command_exists starship; then
   info "Installing Starship prompt..."
-  curl -fsSL https://starship.rs/install.sh | sh -s -- -y -b "$HOME/.local/bin"
+  curl -fsSL https://starship.rs/install.sh | sh -s -- -y -b "$HOME/.local/bin" 2>&1 | \
+    grep -E "^(>|✓|Starship)" || true
 fi
 
 # Report what we got
@@ -1058,7 +1063,7 @@ STARSHIP_CONF
 success "Starship config written."
 
 # --- 15. Clone all GitHub repos ---------------------------------------------
-section "15/$TOTAL_STEPS — Clone All GitHub Repos ($GITHUB_USER)"
+section "15/$TOTAL_STEPS — Clone All GitHub Repos${GITHUB_USER:+ ($GITHUB_USER)}"
 
 mkdir -p "$REPOS_DIR"
 
@@ -1149,6 +1154,7 @@ if gh auth status &>/dev/null; then
       fi
     fi
   fi
+  _REPOS_CLONED=1
 else
   warn "GitHub CLI not authenticated — skipping repo cloning."
   info "Authenticate later with 'gh auth login', then run:"
@@ -1209,3 +1215,72 @@ SIGNOFF_NAME="${GIT_NAME:-${GITHUB_USER:-hacker}}"
 # Use just the first name if we have a full name
 SIGNOFF_FIRST=$(echo "$SIGNOFF_NAME" | awk '{print $1}')
 echo -e "${BOLD}Happy hacking, ${SIGNOFF_FIRST}. 🚀${NC}"
+
+# --- Deferred clone (non-interactive recovery) ---
+# If the clone step was skipped (e.g., gh wasn't on PATH yet, or
+# GH_TOKEN arrived late), retry now that everything is installed.
+if [[ ! -t 0 ]] && [[ -z "${_REPOS_CLONED:-}" ]]; then
+  # Source the bashrc to get PATH, nvm, gh, etc.
+  # shellcheck source=/dev/null
+  . "$HOME/.bashrc" 2>/dev/null || true
+
+  if command_exists gh && gh auth status &>/dev/null; then
+    echo ""
+    info "Retrying repo clone now that tools are on PATH..."
+
+    GITHUB_USER=$(gh api user --jq '.login' 2>/dev/null) || true
+    if [[ -n "$GITHUB_USER" ]]; then
+      # Re-source config for GITHUB_ORG
+      [[ -f "$WS_CONFIG" ]] && . "$WS_CONFIG"
+
+      REPO_LIST=$(gh repo list "$GITHUB_USER" --limit 200 --json name,isPrivate \
+        --jq '.[] | "\(.name)\t\(.isPrivate)"' 2>/dev/null) || true
+
+      if [[ -n "$REPO_LIST" ]]; then
+        CLONE_COUNT=0
+        SKIP_COUNT=0
+        while IFS=$'\t' read -r REPO_NAME IS_PRIVATE; do
+          DEST="$REPOS_DIR/$REPO_NAME"
+          if [[ -d "$DEST" ]]; then
+            ((SKIP_COUNT++)) || true
+          else
+            HTTPS_URL="https://github.com/${GITHUB_USER}/${REPO_NAME}.git"
+            if git clone --quiet "$HTTPS_URL" "$DEST" 2>/dev/null; then
+              PRIVATE_TAG=""
+              [[ "$IS_PRIVATE" == "true" ]] && PRIVATE_TAG=" 🔒"
+              success "$REPO_NAME${PRIVATE_TAG}"
+              ((CLONE_COUNT++)) || true
+            fi
+          fi
+        done <<< "$REPO_LIST"
+        info "Deferred clone: $CLONE_COUNT cloned, $SKIP_COUNT already present"
+      fi
+
+      # Also clone org repos if configured
+      if [[ -n "${GITHUB_ORG:-}" ]] && [[ "$GITHUB_ORG" != "$GITHUB_USER" ]]; then
+        ORG_REPO_LIST=$(gh repo list "$GITHUB_ORG" --limit 200 --json name,isPrivate \
+          --jq '.[] | "\(.name)\t\(.isPrivate)"' 2>/dev/null) || true
+
+        if [[ -n "$ORG_REPO_LIST" ]]; then
+          ORG_CLONE_COUNT=0
+          ORG_SKIP_COUNT=0
+          while IFS=$'\t' read -r REPO_NAME IS_PRIVATE; do
+            DEST="$REPOS_DIR/$REPO_NAME"
+            if [[ -d "$DEST" ]]; then
+              ((ORG_SKIP_COUNT++)) || true
+            else
+              HTTPS_URL="https://github.com/${GITHUB_ORG}/${REPO_NAME}.git"
+              if git clone --quiet "$HTTPS_URL" "$DEST" 2>/dev/null; then
+                PRIVATE_TAG=""
+                [[ "$IS_PRIVATE" == "true" ]] && PRIVATE_TAG=" 🔒"
+                success "$REPO_NAME${PRIVATE_TAG} (${GITHUB_ORG})"
+                ((CLONE_COUNT++)) || true
+              fi
+            fi
+          done <<< "$ORG_REPO_LIST"
+          info "Deferred org clone ($GITHUB_ORG): $ORG_CLONE_COUNT cloned, $ORG_SKIP_COUNT already present"
+        fi
+      fi
+    fi
+  fi
+fi
