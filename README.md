@@ -17,20 +17,29 @@ Pick the script that matches your environment and run it:
 
 **Chromebook (Crostini):**
 ```bash
-curl -sL https://raw.githubusercontent.com/PitziLabs/workstation-bootstrap/main/setup-crostini-lab.sh | bash
+# Download first (recommended):
+curl -sLO https://raw.githubusercontent.com/PitziLabs/workstation-bootstrap/main/setup-crostini-lab.sh
+GH_TOKEN=ghp_yourtoken bash setup-crostini-lab.sh
+
+# Or pipe directly (note: GH_TOKEN goes AFTER the pipe):
+curl -sL https://raw.githubusercontent.com/PitziLabs/workstation-bootstrap/main/setup-crostini-lab.sh | GH_TOKEN=ghp_yourtoken bash
 ```
 
 **Xubuntu 24.04 VM:**
 ```bash
-curl -sL https://raw.githubusercontent.com/PitziLabs/workstation-bootstrap/main/setup-xubuntu-workstation.sh | bash
+curl -sLO https://raw.githubusercontent.com/PitziLabs/workstation-bootstrap/main/setup-xubuntu-workstation.sh
+GH_TOKEN=ghp_yourtoken bash setup-xubuntu-workstation.sh
 ```
 
 **Fedora KDE Plasma VM:**
 ```bash
-curl -sL https://raw.githubusercontent.com/PitziLabs/workstation-bootstrap/main/setup-fedora-workstation.sh | bash
+curl -sLO https://raw.githubusercontent.com/PitziLabs/workstation-bootstrap/main/setup-fedora-workstation.sh
+GH_TOKEN=ghp_yourtoken bash setup-fedora-workstation.sh
 ```
 
-Add `GH_TOKEN=ghp_xxx` before `bash` for fully unattended runs with GitHub auth and automatic repo cloning.
+Omit `GH_TOKEN=...` for interactive runs — the script will prompt you to authenticate via `gh auth login`.
+
+> **Why download first?** The `curl | bash` pattern sets `GH_TOKEN` for the `bash` process (not `curl`), but stdin is consumed by the pipe so interactive prompts won't work. Downloading first avoids both issues.
 
 ## What they install
 
