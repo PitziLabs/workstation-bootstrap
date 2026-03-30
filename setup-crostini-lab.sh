@@ -127,7 +127,7 @@ require() {
   fi
 }
 
-TOTAL_STEPS=16
+TOTAL_STEPS=15
 
 # --- Preflight --------------------------------------------------------------
 section "Preflight Checks"
@@ -1160,26 +1160,6 @@ else
   info "Authenticate later with 'gh auth login', then run:"
   info "  cd ~/repos && gh repo list $GITHUB_USER --limit 200 --json name -q '.[].name' | xargs -I{} gh repo clone $GITHUB_USER/{}"
 fi
-
-# --- 16. Tailscale (mesh VPN) ------------------------------------------------
-section "$TOTAL_STEPS/$TOTAL_STEPS — Tailscale (mesh VPN)"
-
-if ! command_exists tailscale; then
-  info "Installing Tailscale..."
-  curl -fsSL https://tailscale.com/install.sh | sh
-fi
-
-if command_exists tailscale; then
-  success "Tailscale installed."
-  if ! tailscale status &>/dev/null; then
-    info "Run 'sudo tailscale up' to authenticate and join your tailnet."
-  else
-    success "Tailscale is connected: $(tailscale ip -4 2>/dev/null || echo '<run tailscale up>')"
-  fi
-else
-  warn "Tailscale install failed. Install manually: https://tailscale.com/download/linux"
-fi
-
 # ============================================================================
 section "🎉 Setup Complete!"
 echo ""
@@ -1192,7 +1172,6 @@ echo "  • Run 'aws configure' (or 'aws configure sso') to set up AWS creds"
 echo "  • Run 'assume <profile>' to switch AWS accounts via Granted"
 echo "  • Set DOCKER_HOST in ~/.bashrc if using a remote Docker daemon"
 echo "  • Run 'claude' to authenticate Claude Code"
-echo "  • Run 'sudo tailscale up' to join your tailnet"
 echo "  • Run 'projects' to see your cloned repos at a glance"
 echo "  • Run 'pull-all' to git pull every repo in ~/repos/"
 echo ""
@@ -1202,7 +1181,6 @@ echo "  Cloud/Ops:    AWS CLI v2, Granted, Terraform, tfswitch, kubectl, eksctl,
 echo "  Containers:   Docker CLI + Compose (no daemon)"
 echo "  Dev tools:    git, gh, VS Code, Claude Code, jq, yq, ripgrep, fzf, bat, tmux"
 echo "  Shell:        Starship prompt, direnv, shellcheck"
-echo "  Networking:   Tailscale (mesh VPN)"
 echo "  Config:       ~/.config/workstation-bootstrap/config (org: ${GITHUB_ORG:-<none>})"
 if [[ -n "${GITHUB_ORG:-}" ]]; then
   echo "  Your code:    ~/repos/ (${GITHUB_USER:-<configure gh>} + ${GITHUB_ORG} repos)"
