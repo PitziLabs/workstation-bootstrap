@@ -1,28 +1,32 @@
+# ============================================================================
+# Claude Code — Automated PR Review
+# ============================================================================
+# Runs automatically on every PR. No plugins, no marketplace — just a focused
+# review prompt with the PR context the action provides natively.
+#
+# The action already knows the PR context (repo, number, diff, branch) when
+# triggered by pull_request events. We just need to tell it what to focus on.
+# ============================================================================
+
 name: Claude Code Review
 
 on:
   pull_request:
     types: [opened, synchronize, ready_for_review, reopened]
-    # Optional: Only run on specific file changes
-    # paths:
-    #   - "src/**/*.ts"
-    #   - "src/**/*.tsx"
-    #   - "src/**/*.js"
-    #   - "src/**/*.jsx"
+    paths-ignore:
+      - "*.md"
+      - "docs/**"
+      - "LICENSE"
+      - ".gitignore"
 
 jobs:
   claude-review:
-    # Optional: Filter by PR author
-    # if: |
-    #   github.event.pull_request.user.login == 'external-contributor' ||
-    #   github.event.pull_request.user.login == 'new-developer' ||
-    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
-
+    if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: read
-      issues: read
+      pull-requests: write
+      issues: write
       id-token: write
 
     steps:
@@ -32,13 +36,31 @@ jobs:
           fetch-depth: 1
 
       - name: Run Claude Code Review
-        id: claude-review
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
-          plugins: 'code-review@claude-code-plugins'
-          prompt: '/code-review:code-review ${{ github.repository }}/pull/${{ github.event.pull_request.number }}'
-          # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
-          # or https://code.claude.com/docs/en/cli-reference for available options
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
 
+            Review this pull request. The PR branch is already checked out.
+
+            This repository contains bash bootstrap scripts for Linux workstations
+            and Terraform infrastructure code. Focus your review on:
+
+            1. **Bash correctness** — quoting bugs, unset variable references,
+               broken conditionals, incorrect exit codes, non-portable syntax
+            2. **Idempotency** — will re-running the script break anything?
+            3. **Security** — hardcoded credentials, secrets in output, unsafe
+               permissions, curl|bash pitfalls
+            4. **Terraform** — if HCL files changed: dependency graph issues,
+               resources requiring multiple applies, missing variable validation
+
+            Rules:
+            - Only comment on actual problems or meaningful improvements
+            - Do NOT comment on style, formatting, or naming preferences
+            - Do NOT give positive feedback or praise — just flag issues
+            - Keep it concise: one comment per issue, with file and line reference
+            - If nothing significant is wrong, say so in one sentence and move on
+          claude_args: |
+            --max-turns 5
