@@ -804,6 +804,10 @@ cat >> "$BASHRC" << 'BASHRC_BLOCK'
 # --- PATH ---
 export PATH="$HOME/.local/bin:$HOME/bin:$HOME/go/bin:/usr/local/go/bin:$PATH"
 
+# --- Workstation config ---
+WS_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/workstation-bootstrap/config"
+[[ -f "$WS_CONFIG" ]] && . "$WS_CONFIG"
+
 # --- nvm ---
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
@@ -858,6 +862,12 @@ alias gl='git lg'
 alias gco='git checkout'
 alias gcb='git checkout -b'
 alias gwip='git wip'
+
+# --- Aliases: GitHub org ---
+if [[ -n "${GITHUB_DEFAULT_OWNER:-}" ]]; then
+  alias ghnew='gh repo create --owner "$GITHUB_DEFAULT_OWNER"'
+  alias ghclone='gh repo clone "$GITHUB_DEFAULT_OWNER"/'
+fi
 
 # --- Aliases: safety nets ---
 alias rm='rm -i'
@@ -940,6 +950,8 @@ cat > "$HOME/.config/starship.toml" << 'STARSHIP_CONF'
 # etc.) only appear when active. Context on line 1, path + cursor on line 2.
 # ============================================================================
 
+scan_timeout = 100
+
 format = """
 $git_branch\
 $git_status\
@@ -964,7 +976,6 @@ truncation_length = 0
 truncate_to_repo = false
 format = "[$path]($style) "
 style = "bold cyan"
-scan_timeout = 100
 
 [git_branch]
 symbol = " "
@@ -1082,7 +1093,48 @@ if gh auth status &>/dev/null; then
     done <<< "$REPO_LIST"
 
     echo ""
-    info "Repos: $CLONE_COUNT cloned, $SKIP_COUNT already present, $FAIL_COUNT failed"
+    info "Repos ($GITHUB_USER): $CLONE_COUNT cloned, $SKIP_COUNT already present, $FAIL_COUNT failed"
+
+    # --- Clone org repos (if GITHUB_ORG is set) ---
+    if [[ -n "${GITHUB_ORG:-}" ]] && [[ "$GITHUB_ORG" != "$GITHUB_USER" ]]; then
+      echo ""
+      info "Fetching repo list for org: $GITHUB_ORG..."
+
+      ORG_REPO_LIST=$(gh repo list "$GITHUB_ORG" --limit 200 --json name,isPrivate \
+        --jq '.[] | "\(.name)\t\(.isPrivate)"' 2>/dev/null) || true
+
+      if [[ -z "${ORG_REPO_LIST:-}" ]]; then
+        warn "No repos found for $GITHUB_ORG (or no access / API rate limited)."
+      else
+        ORG_CLONE_COUNT=0
+        ORG_SKIP_COUNT=0
+        ORG_FAIL_COUNT=0
+
+        while IFS=$'\t' read -r REPO_NAME IS_PRIVATE; do
+          DEST="$REPOS_DIR/$REPO_NAME"
+
+          if [[ -d "$DEST" ]]; then
+            skip "$REPO_NAME (already cloned)"
+            ((ORG_SKIP_COUNT++)) || true
+          else
+            PRIVATE_TAG=""
+            [[ "$IS_PRIVATE" == "true" ]] && PRIVATE_TAG=" 🔒"
+
+            HTTPS_URL="https://github.com/${GITHUB_ORG}/${REPO_NAME}.git"
+            if git clone --quiet "$HTTPS_URL" "$DEST" 2>/dev/null; then
+              success "$REPO_NAME${PRIVATE_TAG} (${GITHUB_ORG})"
+              ((ORG_CLONE_COUNT++)) || true
+            else
+              warn "Failed to clone $GITHUB_ORG/$REPO_NAME"
+              ((ORG_FAIL_COUNT++)) || true
+            fi
+          fi
+        done <<< "$ORG_REPO_LIST"
+
+        echo ""
+        info "Org repos ($GITHUB_ORG): $ORG_CLONE_COUNT cloned, $ORG_SKIP_COUNT already present, $ORG_FAIL_COUNT failed"
+      fi
+    fi
   fi
 else
   warn "GitHub CLI not authenticated — skipping repo cloning."
@@ -1222,6 +1274,41 @@ success "XRDP configured — connect via Microsoft Remote Desktop at $(hostname 
 info "Session type: KDE Plasma X11 (Wayland is not supported over XRDP)"
 info "Recommended: set RDP client resolution to 1920x1080 (4K causes rendering issues with software GL)"
 
+# --- 17. Tailscale (mesh VPN) ------------------------------------------------
+section "$TOTAL_STEPS/$TOTAL_STEPS — Tailscale (mesh VPN)"
+
+if ! command_exists tailscale; then
+  info "Installing Tailscale..."
+  # Tailscale's universal installer handles Fedora correctly.
+  # Using it instead of manually adding the DNF repo keeps the install
+  # path consistent across all three scripts.
+  curl -fsSL https://tailscale.com/install.sh | sh
+fi
+
+if command_exists tailscale; then
+  sudo systemctl enable --now tailscaled
+  success "Tailscale installed and service enabled."
+
+  # Open firewall for Tailscale if firewalld is running
+  if command_exists firewall-cmd && sudo firewall-cmd --state &>/dev/null; then
+    # Tailscale creates its own interface (tailscale0). Adding it to the
+    # trusted zone means traffic over the tailnet is unrestricted — which
+    # is the right default since Tailscale handles its own auth and ACLs.
+    sudo firewall-cmd --permanent --zone=trusted --add-interface=tailscale0 2>/dev/null || true
+    sudo firewall-cmd --reload
+    info "Added tailscale0 to firewalld trusted zone."
+  fi
+
+  if ! tailscale status &>/dev/null; then
+    info "Run 'sudo tailscale up' to authenticate and join your tailnet."
+    info "Then connect via RDP from your Chromebook using the Tailscale IP."
+  else
+    success "Tailscale is connected: $(tailscale ip -4 2>/dev/null || echo '<run tailscale up>')"
+  fi
+else
+  warn "Tailscale install failed. Install manually: https://tailscale.com/download/linux"
+fi
+
 # ============================================================================
 section "🎉 Setup Complete!"
 echo ""
@@ -1235,6 +1322,7 @@ echo "  • Run 'docker run hello-world' to verify Docker"
 echo "  • Run 'aws configure' (or 'aws configure sso') to set up AWS creds"
 echo "  • Run 'assume <profile>' to switch AWS accounts via Granted"
 echo "  • Run 'claude' to authenticate Claude Code"
+echo "  • Run 'sudo tailscale up' to join your tailnet"
 echo "  • Run 'projects' to see your cloned repos at a glance"
 echo "  • Run 'pull-all' to git pull every repo in ~/repos/"
 echo "  • Take a Proxmox snapshot of this VM (your known-good baseline)"
@@ -1245,9 +1333,14 @@ echo "  Cloud/Ops:    AWS CLI v2, Granted, Terraform, tfswitch, kubectl, eksctl,
 echo "  Containers:   Docker Engine + Compose"
 echo "  Dev tools:    git, gh, VS Code, Claude Code, jq, yq, ripgrep, fzf, bat, tmux"
 echo "  Shell:        Starship prompt, direnv, shellcheck"
-echo "  Remote:       XRDP (port 3389), SSH (port 22)"
+echo "  Remote:       XRDP (port 3389), SSH (port 22), Tailscale (mesh VPN)"
 echo "  Desktop:      KDE Plasma (X11 session for XRDP compatibility)"
-echo "  Your code:    ~/repos/ (all ${GITHUB_USER:-<configure gh>} repos)"
+echo "  Config:       ~/.config/workstation-bootstrap/config (org: ${GITHUB_ORG:-<none>})"
+if [[ -n "${GITHUB_ORG:-}" ]]; then
+  echo "  Your code:    ~/repos/ (${GITHUB_USER:-<configure gh>} + ${GITHUB_ORG} repos)"
+else
+  echo "  Your code:    ~/repos/ (all ${GITHUB_USER:-<configure gh>} repos)"
+fi
 echo ""
 SIGNOFF_NAME="${GIT_NAME:-${GITHUB_USER:-hacker}}"
 SIGNOFF_FIRST=$(echo "$SIGNOFF_NAME" | awk '{print $1}')
