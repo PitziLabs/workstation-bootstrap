@@ -1,1 +1,4 @@
-# This file exists only to trigger PR workflows. Delete after verification.
+# Stub file to exercise GitHub Actions workflows.
+# This is NOT an *.md, docs/**, LICENSE, or .gitignore — so it will
+# trigger the claude-code-review.yml paths filter on pull_request events.
+# Delete after verification.
