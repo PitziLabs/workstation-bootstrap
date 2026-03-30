@@ -94,17 +94,42 @@ The day after finishing the Crostini script, my VM refused to start. Corrupted m
 
 ## Customization
 
+### Environment variables
+
 All scripts accept the same environment variables:
 
 | Variable | Default | Description |
 |---|---|---|
-| `GH_TOKEN` | *(none)* | GitHub PAT — enables non-interactive auth and repo cloning |
+| `GH_TOKEN` | *(none)* | GitHub PAT (scopes: `repo`, `read:org`) — enables non-interactive auth and repo cloning |
 | `GIT_NAME` | *(auto-detected)* | Git commit author name — from gh profile, git config, or prompt |
 | `GIT_EMAIL` | *(auto-detected)* | Git commit author email — from gh profile, git config, or prompt |
 | `GITHUB_USER` | *(auto-detected)* | GitHub username for repo cloning — from gh auth session |
+| `GITHUB_ORG` | *(none)* | GitHub organization — clones org repos alongside personal repos when set |
+| `GITHUB_DEFAULT_OWNER` | *(none)* | Default owner for `gh repo create` — powers the `ghnew` and `ghclone` aliases |
 | `REPOS_DIR` | `~/repos` | Where to clone repos |
 
 All identity values are auto-detected from your GitHub profile after authentication. You only need environment variables if you want to override defaults or run fully unattended.
+
+The `read:org` scope on `GH_TOKEN` is required to list and clone repos from a GitHub organization. Without it, personal repo cloning still works but org cloning will silently return no results.
+
+### Persistent config file
+
+On first run, each script creates a config template at `~/.config/workstation-bootstrap/config`. This file is sourced on every subsequent run and in every new shell (via `.bashrc`), so your preferences persist without passing environment variables each time.
+
+```bash
+# ~/.config/workstation-bootstrap/config
+GITHUB_ORG="YourOrg"
+GITHUB_DEFAULT_OWNER="YourOrg"
+```
+
+The scripts will never overwrite an existing config file. Environment variables still take precedence — if you pass `GITHUB_ORG=something` at the command line, it overrides whatever is in the config file for that run.
+
+### Org-aware aliases
+
+When `GITHUB_DEFAULT_OWNER` is set (via config file or environment), two aliases become available:
+
+- **`ghnew`** — `gh repo create --owner $GITHUB_DEFAULT_OWNER` (create repos under your org by default)
+- **`ghclone`** — `gh repo clone $GITHUB_DEFAULT_OWNER/` (clone org repos without typing the owner prefix)
 
 ## The Starship prompt
 
@@ -201,6 +226,8 @@ These scripts were developed through iterative field testing on real hardware. E
 ## Idempotent
 
 All three scripts are safe to re-run at any time. Each checks for existing installations before doing anything, and the `.bashrc` configuration block is replaced cleanly on each run (bounded by marker comments). The Xubuntu and Fedora scripts also clean up markers from the other variants if you're migrating between environments.
+
+The workstation config file at `~/.config/workstation-bootstrap/config` is never overwritten on re-run — only created if it doesn't exist yet.
 
 ## Requirements
 
