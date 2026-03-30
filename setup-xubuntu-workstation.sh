@@ -234,35 +234,6 @@ success "Base packages installed."
 # --- 2. Git config ----------------------------------------------------------
 section "2/$TOTAL_STEPS — Git Configuration"
 
-[[ -z "$GIT_NAME" ]] && GIT_NAME="$(git config --global user.name 2>/dev/null || true)"
-[[ -z "$GIT_EMAIL" ]] && GIT_EMAIL="$(git config --global user.email 2>/dev/null || true)"
-
-if [[ -z "$GIT_NAME" ]]; then
-  if [[ "$INTERACTIVE" == "true" ]]; then
-    read -rp "Git user.name: " GIT_NAME
-  fi
-fi
-
-if [[ -z "$GIT_EMAIL" ]]; then
-  if [[ "$INTERACTIVE" == "true" ]]; then
-    read -rp "Git user.email: " GIT_EMAIL
-  fi
-fi
-
-if [[ -n "$GIT_NAME" ]]; then
-  git config --global user.name "$GIT_NAME"
-  info "Set git user.name = $GIT_NAME"
-else
-  info "Git user.name not set yet — will attempt auto-detection after GitHub auth."
-fi
-
-if [[ -n "$GIT_EMAIL" ]]; then
-  git config --global user.email "$GIT_EMAIL"
-  info "Set git user.email = $GIT_EMAIL"
-else
-  info "Git user.email not set yet — will attempt auto-detection after GitHub auth."
-fi
-
 git config --global init.defaultBranch main
 git config --global pull.rebase true
 git config --global push.autoSetupRemote true
@@ -274,7 +245,7 @@ git config --global alias.br "branch"
 git config --global alias.unstage "reset HEAD --"
 git config --global alias.amend "commit --amend --no-edit"
 git config --global alias.wip "!git add -A && git commit -m 'WIP'"
-success "Git configured."
+success "Git defaults configured (identity set after GitHub auth in step 10)."
 
 # --- 3. Python 3 + pip + venv -----------------------------------------------
 section "3/$TOTAL_STEPS — Python 3 + pip + venv"
