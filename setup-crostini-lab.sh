@@ -65,6 +65,19 @@ GITHUB_USER="${GITHUB_USER:-}"
 REPOS_DIR="${REPOS_DIR:-$HOME/repos}"
 GIT_NAME="${GIT_NAME:-}"
 GIT_EMAIL="${GIT_EMAIL:-}"
+
+# --- Workstation config (personal overrides) --------------------------------
+# Source user config if it exists. This lets you set GITHUB_ORG,
+# GITHUB_DEFAULT_OWNER, and future preferences without editing the script.
+WS_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/workstation-bootstrap/config"
+GITHUB_ORG="${GITHUB_ORG:-}"
+GITHUB_DEFAULT_OWNER="${GITHUB_DEFAULT_OWNER:-}"
+
+if [[ -f "$WS_CONFIG" ]]; then
+  # shellcheck source=/dev/null
+  . "$WS_CONFIG"
+fi
+
 # GH_TOKEN is read from environment if set; used by gh CLI directly.
 
 # Detect whether stdin is a terminal (interactive) or piped (automated)
@@ -112,7 +125,7 @@ require() {
   fi
 }
 
-TOTAL_STEPS=15
+TOTAL_STEPS=16
 
 # --- Preflight --------------------------------------------------------------
 section "Preflight Checks"
@@ -127,7 +140,7 @@ fi
 
 info "Detected: $(grep PRETTY_NAME /etc/os-release | cut -d= -f2 | tr -d '"')"
 info "User: $(whoami) | Home: $HOME"
-info "GitHub user: $GITHUB_USER | Repos dir: $REPOS_DIR"
+info "GitHub user: ${GITHUB_USER:-<will auto-detect>} | Org: ${GITHUB_ORG:-<none>} | Repos dir: $REPOS_DIR"
 info "Shell: bash $BASH_VERSION"
 if [[ -n "${GH_TOKEN:-}" ]]; then
   info "Mode: non-interactive (GH_TOKEN set)"
@@ -140,6 +153,35 @@ fi
 # Harvest sudo credentials up front so the password prompt doesn't ambush
 # us mid-install when the credential cache expires.
 sudo -v
+
+# --- Create workstation config template if it doesn't exist ---
+WS_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/workstation-bootstrap"
+if [[ ! -f "$WS_CONFIG_DIR/config" ]]; then
+  mkdir -p "$WS_CONFIG_DIR"
+  cat > "$WS_CONFIG_DIR/config" << 'WS_CONF'
+# ============================================================================
+# Workstation bootstrap config — sourced by setup-*-workstation.sh scripts
+# Location: ~/.config/workstation-bootstrap/config
+#
+# This file personalizes your workstation without modifying the bootstrap
+# scripts themselves. The scripts stay portable; your preferences live here.
+# Re-running any bootstrap script will NOT overwrite this file.
+# ============================================================================
+
+# --- GitHub org to clone alongside personal repos --------------------------
+# Set this to also clone all repos from a GitHub organization during
+# bootstrap. Leave empty to only clone your personal repos.
+# The bootstrap script clones BOTH personal and org repos when set.
+#GITHUB_ORG=""
+
+# --- Default owner for new repos ------------------------------------------
+# Used by the 'ghnew' alias to default gh repo create to this owner.
+# Leave empty to default to your personal account.
+#GITHUB_DEFAULT_OWNER=""
+WS_CONF
+  info "Created workstation config at $WS_CONFIG_DIR/config"
+  info "Edit this file to set your GitHub org and other preferences."
+fi
 
 # --- 1. System update & base packages --------------------------------------
 section "1/$TOTAL_STEPS — System Update & Base Packages"
