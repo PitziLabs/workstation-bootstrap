@@ -227,7 +227,11 @@ DESIRED_HOSTNAME="fedora"
 if [[ "$(hostname)" != "$DESIRED_HOSTNAME" ]]; then
   info "Setting hostname to '$DESIRED_HOSTNAME' (was '$(hostname)')..."
   sudo hostnamectl set-hostname "$DESIRED_HOSTNAME"
-  sudo sed -i "s/127\.0\.1\.1.*/127.0.1.1\t$DESIRED_HOSTNAME/" /etc/hosts
+  if grep -q "127\.0\.1\.1" /etc/hosts; then
+    sudo sed -i "s/127\.0\.1\.1.*/127.0.1.1\t$DESIRED_HOSTNAME/" /etc/hosts
+  else
+    printf "127.0.1.1\t%s\n" "$DESIRED_HOSTNAME" | sudo tee -a /etc/hosts > /dev/null
+  fi
   success "Hostname set to $DESIRED_HOSTNAME"
 else
   info "Hostname already set to $DESIRED_HOSTNAME"
