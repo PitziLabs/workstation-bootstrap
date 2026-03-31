@@ -932,7 +932,7 @@ $kubernetes\
 $docker_context\
 $cmd_duration\
 $line_break\
-${custom.os}$hostname$directory\
+$hostname${custom.os}$directory\
 $character"""
 
 [character]
@@ -996,7 +996,7 @@ only_with_files = true
 [custom.os]
 command = '. /etc/os-release 2>/dev/null && echo "${ID} ${VERSION_ID}"'
 when = "true"
-format = "[$output]($style) "
+format = "[($output)]($style):"
 style = "bold dimmed green"
 
 [cmd_duration]
@@ -1013,7 +1013,7 @@ disabled = true
 [hostname]
 disabled = false
 ssh_only = false            # Always show hostname — this is a remote workstation
-format = "[$hostname](bold dimmed green):"
+format = "[$hostname](bold dimmed green) "
 STARSHIP_CONF
 success "Starship config written."
 
