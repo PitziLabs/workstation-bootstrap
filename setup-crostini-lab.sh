@@ -458,7 +458,13 @@ if ! gh auth status &>/dev/null; then
   if [[ -n "${GH_TOKEN:-}" ]]; then
     # Token provided via environment — authenticate non-interactively.
     info "Authenticating GitHub CLI via GH_TOKEN..."
-    echo "$GH_TOKEN" | gh auth login --with-token
+    # Temporarily unset GH_TOKEN so gh can actually store the credentials.
+    # With GH_TOKEN in the environment, gh auth login refuses to write to
+    # the credential store (the env var takes precedence).
+    _SAVED_TOKEN="$GH_TOKEN"
+    unset GH_TOKEN
+    echo "$_SAVED_TOKEN" | gh auth login --with-token
+    unset _SAVED_TOKEN
   else
     # No token — skip. User can run gh auth login manually.
     warn "GitHub CLI is not authenticated."
@@ -503,6 +509,10 @@ if gh auth status &>/dev/null; then
 else
   warn "GitHub auth skipped — repo cloning will only work for public repos."
 fi
+
+# Clear GH_TOKEN — credentials are now stored in gh's credential store.
+# Leaving GH_TOKEN set can interfere with npm, VS Code, and other tools.
+unset GH_TOKEN 2>/dev/null || true
 
 # --- 11. VS Code -------------------------------------------------------------
 section "11/$TOTAL_STEPS — VS Code"
