@@ -688,7 +688,7 @@ if ! command_exists fzf; then
   info "Installing fzf..."
   [[ -d "$HOME/.fzf" ]] && rm -rf "$HOME/.fzf"
   git clone --depth 1 https://github.com/junegunn/fzf.git "$HOME/.fzf"
-  "$HOME/.fzf/install" --key-bindings --completion --no-update-rc --no-bash --no-zsh --no-fish
+  "$HOME/.fzf/install" --key-bindings --completion --no-update-rc --no-bash --no-zsh --no-fish < /dev/null
 fi
 
 if ! command_exists yq; then
