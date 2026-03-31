@@ -5,7 +5,7 @@
 #
 # Author:  Chris Pitzi — PitziLabs (https://github.com/PitziLabs)
 # Updated: 2026-03-26
-#
+##
 # Usage:
 #   Quick start (download first — recommended):
 #     curl -sLO https://raw.githubusercontent.com/PitziLabs/workstation-bootstrap/main/setup-crostini-lab.sh
