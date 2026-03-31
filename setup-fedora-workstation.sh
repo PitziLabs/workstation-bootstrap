@@ -734,7 +734,7 @@ if ! command_exists fzf; then
   info "Installing fzf..."
   [[ -d "$HOME/.fzf" ]] && rm -rf "$HOME/.fzf"
   git clone --depth 1 https://github.com/junegunn/fzf.git "$HOME/.fzf"
-  "$HOME/.fzf/install" --key-bindings --completion --no-update-rc --no-bash --no-zsh --no-fish
+  "$HOME/.fzf/install" --key-bindings --completion --no-update-rc --no-bash --no-zsh --no-fish < /dev/null
 fi
 
 # yq (YAML processor — the Go-based one by Mike Farah)
@@ -1159,7 +1159,7 @@ if command_exists setsebool; then
   # Generate a local policy module if audit2allow is available and there are
   # existing denials. This is the "catch whatever we missed" safety net.
   if command_exists audit2allow; then
-    XRDP_DENIALS=$(sudo ausearch -m avc -ts recent 2>/dev/null | grep xrdp 2>/dev/null || true)
+    XRDP_DENIALS=$(sudo ausearch -m avc -ts recent < /dev/null 2>/dev/null | grep xrdp 2>/dev/null || true)
     if [[ -n "$XRDP_DENIALS" ]]; then
       info "Generating SELinux policy for existing xrdp denials..."
       echo "$XRDP_DENIALS" | sudo audit2allow -M xrdp-local 2>/dev/null && \
