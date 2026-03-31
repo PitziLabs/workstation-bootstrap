@@ -197,7 +197,10 @@ DESIRED_HOSTNAME="crostini"
 if [[ "$(hostname)" != "$DESIRED_HOSTNAME" ]]; then
   info "Setting hostname to '$DESIRED_HOSTNAME' (was '$(hostname)')..."
   if command_exists hostnamectl; then
-    sudo hostnamectl set-hostname "$DESIRED_HOSTNAME"
+  if ! sudo hostnamectl set-hostname "$DESIRED_HOSTNAME" 2>/dev/null; then
+    echo "$DESIRED_HOSTNAME" | sudo tee /etc/hostname > /dev/null
+    sudo hostname "$DESIRED_HOSTNAME"
+  fi
   else
     echo "$DESIRED_HOSTNAME" | sudo tee /etc/hostname > /dev/null
     sudo hostname "$DESIRED_HOSTNAME"
