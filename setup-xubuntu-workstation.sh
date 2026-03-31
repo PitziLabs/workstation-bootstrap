@@ -65,6 +65,12 @@
 
 set -euo pipefail
 
+# --- Global error trap -------------------------------------------------------
+# If set -e kills the script unexpectedly, tell the user what step failed
+# and that re-running is safe (all steps are idempotent).
+CURRENT_STEP="initializing"
+trap 'echo ""; echo -e "${RED}[FATAL] Script failed during: ${CURRENT_STEP}${NC}"; echo -e "${YELLOW}Re-run is safe — completed steps will be skipped (idempotent).${NC}"' ERR
+
 # --- Config (overridable via environment variables) -------------------------
 GITHUB_USER="${GITHUB_USER:-}"
 REPOS_DIR="${REPOS_DIR:-$HOME/repos}"
@@ -107,6 +113,7 @@ fail()    { echo -e "${RED}[FAIL]${NC} $*"; exit 1; }
 skip()    { echo -e "${CYAN}[SKIP]${NC} $*"; }
 
 section() {
+  CURRENT_STEP="$*"
   echo ""
   echo -e "${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
   echo -e "${BOLD}  $*${NC}"
@@ -455,7 +462,14 @@ if ! gh auth status &>/dev/null; then
     # the credential store (the env var takes precedence).
     _SAVED_TOKEN="$GH_TOKEN"
     unset GH_TOKEN
-    echo "$_SAVED_TOKEN" | gh auth login --with-token
+    if echo "$_SAVED_TOKEN" | gh auth login --with-token 2>&1; then
+      : # auth succeeded, continue
+    else
+      warn "GH_TOKEN authentication failed (bad token? expired? wrong scopes?)."
+      info "Continuing without GitHub auth — remaining tools will still install."
+      info "After setup, fix with: gh auth login"
+      info "Or re-run with a valid token: GH_TOKEN=ghp_xxx bash $(basename "$0")"
+    fi
     unset _SAVED_TOKEN
   else
     warn "GitHub CLI is not authenticated."
