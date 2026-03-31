@@ -195,6 +195,16 @@ WS_CONF
   info "Edit this file to set your GitHub org and other preferences."
 fi
 
+# --- Set hostname -----------------------------------------------------------
+DESIRED_HOSTNAME="xubuntu"
+if [[ "$(hostname)" != "$DESIRED_HOSTNAME" ]]; then
+  info "Setting hostname to '$DESIRED_HOSTNAME' (was '$(hostname)')..."
+  sudo hostnamectl set-hostname "$DESIRED_HOSTNAME"
+  success "Hostname set to $DESIRED_HOSTNAME"
+else
+  info "Hostname already set to $DESIRED_HOSTNAME"
+fi
+
 # --- 1. System update & base packages --------------------------------------
 section "1/$TOTAL_STEPS — System Update & Base Packages"
 

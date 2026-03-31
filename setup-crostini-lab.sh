@@ -192,6 +192,21 @@ WS_CONF
   info "Edit this file to set your GitHub org and other preferences."
 fi
 
+# --- Set hostname -----------------------------------------------------------
+DESIRED_HOSTNAME="crostini"
+if [[ "$(hostname)" != "$DESIRED_HOSTNAME" ]]; then
+  info "Setting hostname to '$DESIRED_HOSTNAME' (was '$(hostname)')..."
+  if command_exists hostnamectl; then
+    sudo hostnamectl set-hostname "$DESIRED_HOSTNAME"
+  else
+    echo "$DESIRED_HOSTNAME" | sudo tee /etc/hostname > /dev/null
+    sudo hostname "$DESIRED_HOSTNAME"
+  fi
+  success "Hostname set to $DESIRED_HOSTNAME"
+else
+  info "Hostname already set to $DESIRED_HOSTNAME"
+fi
+
 # --- 1. System update & base packages --------------------------------------
 section "1/$TOTAL_STEPS — System Update & Base Packages"
 
