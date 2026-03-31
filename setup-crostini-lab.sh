@@ -204,7 +204,9 @@ if [[ "$(hostname)" != "$DESIRED_HOSTNAME" ]]; then
   else
     echo "$DESIRED_HOSTNAME" | sudo tee /etc/hostname > /dev/null
     sudo hostname "$DESIRED_HOSTNAME"
-  fi
+  # Update /etc/hosts so sudo can resolve the new hostname
+  sudo sed -i "s/127\.0\.1\.1.*/127.0.1.1\t$DESIRED_HOSTNAME/" /etc/hosts
+  success "Hostname set to $DESIRED_HOSTNAME"
   success "Hostname set to $DESIRED_HOSTNAME"
 else
   info "Hostname already set to $DESIRED_HOSTNAME"
