@@ -207,7 +207,7 @@ if [[ "$(hostname)" != "$DESIRED_HOSTNAME" ]]; then
   fi
   # Update /etc/hosts so sudo can resolve the new hostname
   if grep -q "127\.0\.1\.1" /etc/hosts; then
-    sudo sed -i "s/127\.0\.1\.1.*/127.0.1.1\t$DESIRED_HOSTNAME/" /etc/hosts
+    sudo sed -i "s/^127\.0\.1\.1.*/127.0.1.1\t$DESIRED_HOSTNAME/" /etc/hosts
   else
     printf "127.0.1.1\t%s\n" "$DESIRED_HOSTNAME" | sudo tee -a /etc/hosts > /dev/null
   fi
