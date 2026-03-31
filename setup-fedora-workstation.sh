@@ -1158,12 +1158,14 @@ if command_exists setsebool; then
 
   # Generate a local policy module if audit2allow is available and there are
   # existing denials. This is the "catch whatever we missed" safety net.
-  if command_exists audit2allow && sudo ausearch -m avc -ts recent 2>/dev/null | grep -q xrdp; then
-    info "Generating SELinux policy for existing xrdp denials..."
-    sudo ausearch -m avc -ts recent 2>/dev/null | grep xrdp | \
-      sudo audit2allow -M xrdp-local 2>/dev/null && \
-      sudo semodule -i xrdp-local.pp 2>/dev/null || true
-    rm -f xrdp-local.te xrdp-local.pp xrdp-local.mod 2>/dev/null || true
+  if command_exists audit2allow; then
+    XRDP_DENIALS=$(sudo ausearch -m avc -ts recent 2>/dev/null | grep xrdp 2>/dev/null || true)
+    if [[ -n "$XRDP_DENIALS" ]]; then
+      info "Generating SELinux policy for existing xrdp denials..."
+      echo "$XRDP_DENIALS" | sudo audit2allow -M xrdp-local 2>/dev/null && \
+        sudo semodule -i xrdp-local.pp 2>/dev/null || true
+      rm -f xrdp-local.te xrdp-local.pp xrdp-local.mod 2>/dev/null || true
+    fi
   fi
 fi
 
