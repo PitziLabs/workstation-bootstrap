@@ -253,3 +253,4 @@ Built iteratively with [Claude](https://claude.ai) (Anthropic) through multi-day
 ## License
 
 MIT License — see [LICENSE](LICENSE).
+
