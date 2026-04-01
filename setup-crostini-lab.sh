@@ -35,12 +35,11 @@
 #   7.  Terraform + tfswitch
 #   8.  kubectl + eksctl + Helm
 #   9.  Docker CLI + docker-compose (CLI only, no daemon)
-#  10.  GitHub CLI (gh) + authenticate
+#  10.  GitHub CLI (gh) + authenticate + clone repos
 #  11.  VS Code (via Microsoft APT repo)
 #  12.  Claude Code
-#  13.  Misc: jq, yq, tree, bat, ripgrep, fzf, tmux, shellcheck, direnv
+#  13.  Quality-of-life CLI tools
 #  14.  Shell config (starship prompt, aliases, PATH wiring)
-#  15.  Clone all GitHub repos (auto-detected user)
 #
 # Field-tested bugs fixed in this version:
 #   - nvm: directory must exist before installer; source AFTER install
@@ -134,7 +133,7 @@ require() {
   fi
 }
 
-TOTAL_STEPS=15
+TOTAL_STEPS=14
 
 # --- Preflight --------------------------------------------------------------
 section "Preflight Checks"
@@ -453,8 +452,8 @@ fi
 require docker "Docker CLI"
 success "Docker CLI + Compose plugin ready (no daemon — point DOCKER_HOST at a remote)."
 
-# --- 10. GitHub CLI (gh) ----------------------------------------------------
-section "10/$TOTAL_STEPS — GitHub CLI"
+# --- 10. GitHub CLI (gh) + Clone Repos --------------------------------------
+section "10/$TOTAL_STEPS — GitHub CLI + Clone Repos"
 
 if ! command_exists gh; then
   info "Installing GitHub CLI..."
@@ -471,28 +470,15 @@ fi
 require gh "GitHub CLI"
 success "gh $(gh --version 2>/dev/null | head -1) ready."
 
-# Ensure gh is authenticated (needed for repo cloning later)
-# GH_TOKEN is the standard env var that gh respects natively.
-_GH_TOKEN_DEFERRED=false
 if ! gh auth status &>/dev/null; then
   if [[ -n "${GH_TOKEN:-}" ]]; then
-    # Token provided via environment — authenticate non-interactively.
     info "Authenticating GitHub CLI via GH_TOKEN..."
-    # Temporarily unset GH_TOKEN so gh can actually store the credentials.
-    # With GH_TOKEN in the environment, gh auth login refuses to write to
-    # the credential store (the env var takes precedence).
     _SAVED_TOKEN="$GH_TOKEN"
     unset GH_TOKEN
     if echo "$_SAVED_TOKEN" | gh auth login --with-token 2>&1; then
-      # Verify credentials actually persisted to the file-based store.
-      # On a fresh Crostini container there is no desktop keyring, so gh
-      # may report success but fail to write hosts.yml.
-      if ! gh auth status &>/dev/null; then
-        warn "gh credential store is empty — no desktop keyring available."
-        info "Keeping GH_TOKEN in environment until repo cloning is done."
-        export GH_TOKEN="$_SAVED_TOKEN"
-        _GH_TOKEN_DEFERRED=true
-      fi
+      # Re-export so gh commands work for the rest of this step.
+      # We'll clear it after repo cloning is done.
+      export GH_TOKEN="$_SAVED_TOKEN"
     else
       warn "GH_TOKEN authentication failed (bad token? expired? wrong scopes?)."
       info "Continuing without GitHub auth — remaining tools will still install."
@@ -501,7 +487,6 @@ if ! gh auth status &>/dev/null; then
     fi
     unset _SAVED_TOKEN
   else
-    # No token — skip. User can run gh auth login manually.
     warn "GitHub CLI is not authenticated."
     info "Run 'gh auth login' after setup to enable repo cloning."
     info "Or re-run with: GH_TOKEN=ghp_xxx bash $(basename "$0")"
@@ -512,8 +497,6 @@ if gh auth status &>/dev/null; then
   success "GitHub CLI authenticated."
   gh auth setup-git
 
-  # --- Auto-detect user info from GitHub profile ---
-  # This backfills anything not already set from env vars, git config, or prompts.
   if [[ -z "$GITHUB_USER" ]]; then
     GITHUB_USER=$(gh api user -q '.login' 2>/dev/null || true)
     [[ -n "$GITHUB_USER" ]] && info "Auto-detected GitHub user: $GITHUB_USER"
@@ -529,9 +512,7 @@ if gh auth status &>/dev/null; then
   fi
 
   if [[ -z "$(git config --global user.email 2>/dev/null || true)" ]]; then
-    # Try to get the primary email from GitHub (requires user:email scope)
     GH_EMAIL=$(gh api user/emails -q '.[] | select(.primary) | .email' 2>/dev/null || true)
-    # Fallback: try the public email from the profile
     [[ -z "${GH_EMAIL:-}" ]] && GH_EMAIL=$(gh api user -q '.email // empty' 2>/dev/null || true)
     if [[ -n "${GH_EMAIL:-}" ]]; then
       git config --global user.email "$GH_EMAIL"
@@ -545,12 +526,104 @@ else
   warn "GitHub auth skipped — repo cloning will only work for public repos."
 fi
 
-# Clear GH_TOKEN unless we deferred it for the repo-cloning step.
-# Leaving GH_TOKEN set can interfere with npm, VS Code, and other tools,
-# but without a desktop keyring it's the only way gh stays authenticated.
-if [[ "$_GH_TOKEN_DEFERRED" != "true" ]]; then
-  unset GH_TOKEN 2>/dev/null || true
+# --- Clone repos (while auth is fresh) ---
+info "Cloning repos while GitHub auth is active..."
+
+mkdir -p "$REPOS_DIR"
+
+if ! grep -q "github.com" "$HOME/.ssh/known_hosts" 2>/dev/null; then
+  mkdir -p "$HOME/.ssh"
+  ssh-keyscan -t ed25519 github.com >> "$HOME/.ssh/known_hosts" 2>/dev/null || true
 fi
+
+if gh auth status &>/dev/null; then
+  info "Fetching repo list for $GITHUB_USER..."
+
+  REPO_LIST=$(gh repo list "$GITHUB_USER" --limit 200 --json name,isPrivate \
+    --jq '.[] | "\(.name)\t\(.isPrivate)"' 2>/dev/null) || true
+
+  if [[ -z "${REPO_LIST:-}" ]]; then
+    warn "No repos found for $GITHUB_USER (or API rate limited)."
+  else
+    CLONE_COUNT=0
+    SKIP_COUNT=0
+    FAIL_COUNT=0
+
+    while IFS=$'\t' read -r REPO_NAME IS_PRIVATE; do
+      DEST="$REPOS_DIR/$REPO_NAME"
+
+      if [[ -d "$DEST" ]]; then
+        skip "$REPO_NAME (already cloned)"
+        ((SKIP_COUNT++)) || true
+      else
+        PRIVATE_TAG=""
+        [[ "$IS_PRIVATE" == "true" ]] && PRIVATE_TAG=" 🔒"
+
+        HTTPS_URL="https://github.com/${GITHUB_USER}/${REPO_NAME}.git"
+        if git clone --quiet "$HTTPS_URL" "$DEST" 2>/dev/null; then
+          success "$REPO_NAME${PRIVATE_TAG}"
+          ((CLONE_COUNT++)) || true
+        else
+          warn "Failed to clone $REPO_NAME"
+          ((FAIL_COUNT++)) || true
+        fi
+      fi
+    done <<< "$REPO_LIST"
+
+    echo ""
+    info "Repos ($GITHUB_USER): $CLONE_COUNT cloned, $SKIP_COUNT already present, $FAIL_COUNT failed"
+
+    # --- Clone org repos (if GITHUB_ORG is set) ---
+    if [[ -n "${GITHUB_ORG:-}" ]] && [[ "$GITHUB_ORG" != "$GITHUB_USER" ]]; then
+      echo ""
+      info "Fetching repo list for org: $GITHUB_ORG..."
+
+      ORG_REPO_LIST=$(gh repo list "$GITHUB_ORG" --limit 200 --json name,isPrivate \
+        --jq '.[] | "\(.name)\t\(.isPrivate)"' 2>/dev/null) || true
+
+      if [[ -z "${ORG_REPO_LIST:-}" ]]; then
+        warn "No repos found for $GITHUB_ORG (or no access / API rate limited)."
+      else
+        ORG_CLONE_COUNT=0
+        ORG_SKIP_COUNT=0
+        ORG_FAIL_COUNT=0
+
+        while IFS=$'\t' read -r REPO_NAME IS_PRIVATE; do
+          DEST="$REPOS_DIR/$REPO_NAME"
+
+          if [[ -d "$DEST" ]]; then
+            skip "$REPO_NAME (already cloned)"
+            ((ORG_SKIP_COUNT++)) || true
+          else
+            PRIVATE_TAG=""
+            [[ "$IS_PRIVATE" == "true" ]] && PRIVATE_TAG=" 🔒"
+
+            HTTPS_URL="https://github.com/${GITHUB_ORG}/${REPO_NAME}.git"
+            if git clone --quiet "$HTTPS_URL" "$DEST" 2>/dev/null; then
+              success "$REPO_NAME${PRIVATE_TAG} (${GITHUB_ORG})"
+              ((ORG_CLONE_COUNT++)) || true
+            else
+              warn "Failed to clone $GITHUB_ORG/$REPO_NAME"
+              ((ORG_FAIL_COUNT++)) || true
+            fi
+          fi
+        done <<< "$ORG_REPO_LIST"
+
+        echo ""
+        info "Org repos ($GITHUB_ORG): $ORG_CLONE_COUNT cloned, $ORG_SKIP_COUNT already present, $ORG_FAIL_COUNT failed"
+      fi
+    fi
+  fi
+  _REPOS_CLONED=1
+else
+  warn "GitHub CLI not authenticated — skipping repo cloning."
+  info "Authenticate later with 'gh auth login', then run:"
+  info "  cd ~/repos && gh repo list $GITHUB_USER --limit 200 --json name -q '.[].name' | xargs -I{} gh repo clone $GITHUB_USER/{}"
+fi
+
+# Cloning is done — clear GH_TOKEN so it doesn't interfere with npm,
+# VS Code, or other tools that respect GitHub tokens in the environment.
+unset GH_TOKEN 2>/dev/null || true
 
 # --- 11. VS Code -------------------------------------------------------------
 section "11/$TOTAL_STEPS — VS Code"
@@ -1078,111 +1151,6 @@ format = "[$hostname](bold dimmed green):"
 STARSHIP_CONF
 success "Starship config written."
 
-# --- 15. Clone all GitHub repos ---------------------------------------------
-section "15/$TOTAL_STEPS — Clone All GitHub Repos${GITHUB_USER:+ ($GITHUB_USER)}"
-
-mkdir -p "$REPOS_DIR"
-
-# Pre-accept github.com SSH host key to avoid interactive prompt in clone loop
-if ! grep -q "github.com" "$HOME/.ssh/known_hosts" 2>/dev/null; then
-  mkdir -p "$HOME/.ssh"
-  ssh-keyscan -t ed25519 github.com >> "$HOME/.ssh/known_hosts" 2>/dev/null || true
-fi
-
-if gh auth status &>/dev/null; then
-  info "Fetching repo list for $GITHUB_USER..."
-
-  REPO_LIST=$(gh repo list "$GITHUB_USER" --limit 200 --json name,isPrivate \
-    --jq '.[] | "\(.name)\t\(.isPrivate)"' 2>/dev/null) || true
-
-  if [[ -z "${REPO_LIST:-}" ]]; then
-    warn "No repos found for $GITHUB_USER (or API rate limited)."
-  else
-    CLONE_COUNT=0
-    SKIP_COUNT=0
-    FAIL_COUNT=0
-
-    while IFS=$'\t' read -r REPO_NAME IS_PRIVATE; do
-      DEST="$REPOS_DIR/$REPO_NAME"
-
-      if [[ -d "$DEST" ]]; then
-        skip "$REPO_NAME (already cloned)"
-        # [BUG FIX v4] ((x++)) returns 1 (falsy) when x is 0, which kills
-        # set -e. The || true guard prevents this.
-        ((SKIP_COUNT++)) || true
-      else
-        PRIVATE_TAG=""
-        [[ "$IS_PRIVATE" == "true" ]] && PRIVATE_TAG=" 🔒"
-
-        # Clone via HTTPS (works with gh auth setup-git, no SSH keys needed)
-        HTTPS_URL="https://github.com/${GITHUB_USER}/${REPO_NAME}.git"
-        if git clone --quiet "$HTTPS_URL" "$DEST" 2>/dev/null; then
-          success "$REPO_NAME${PRIVATE_TAG}"
-          ((CLONE_COUNT++)) || true
-        else
-          warn "Failed to clone $REPO_NAME"
-          ((FAIL_COUNT++)) || true
-        fi
-      fi
-    done <<< "$REPO_LIST"
-
-    echo ""
-    info "Repos ($GITHUB_USER): $CLONE_COUNT cloned, $SKIP_COUNT already present, $FAIL_COUNT failed"
-
-    # --- Clone org repos (if GITHUB_ORG is set) ---
-    if [[ -n "${GITHUB_ORG:-}" ]] && [[ "$GITHUB_ORG" != "$GITHUB_USER" ]]; then
-      echo ""
-      info "Fetching repo list for org: $GITHUB_ORG..."
-
-      ORG_REPO_LIST=$(gh repo list "$GITHUB_ORG" --limit 200 --json name,isPrivate \
-        --jq '.[] | "\(.name)\t\(.isPrivate)"' 2>/dev/null) || true
-
-      if [[ -z "${ORG_REPO_LIST:-}" ]]; then
-        warn "No repos found for $GITHUB_ORG (or no access / API rate limited)."
-      else
-        ORG_CLONE_COUNT=0
-        ORG_SKIP_COUNT=0
-        ORG_FAIL_COUNT=0
-
-        while IFS=$'\t' read -r REPO_NAME IS_PRIVATE; do
-          DEST="$REPOS_DIR/$REPO_NAME"
-
-          if [[ -d "$DEST" ]]; then
-            skip "$REPO_NAME (already cloned)"
-            ((ORG_SKIP_COUNT++)) || true
-          else
-            PRIVATE_TAG=""
-            [[ "$IS_PRIVATE" == "true" ]] && PRIVATE_TAG=" 🔒"
-
-            HTTPS_URL="https://github.com/${GITHUB_ORG}/${REPO_NAME}.git"
-            if git clone --quiet "$HTTPS_URL" "$DEST" 2>/dev/null; then
-              success "$REPO_NAME${PRIVATE_TAG} (${GITHUB_ORG})"
-              ((ORG_CLONE_COUNT++)) || true
-            else
-              warn "Failed to clone $GITHUB_ORG/$REPO_NAME"
-              ((ORG_FAIL_COUNT++)) || true
-            fi
-          fi
-        done <<< "$ORG_REPO_LIST"
-
-        echo ""
-        info "Org repos ($GITHUB_ORG): $ORG_CLONE_COUNT cloned, $ORG_SKIP_COUNT already present, $ORG_FAIL_COUNT failed"
-      fi
-    fi
-  fi
-  _REPOS_CLONED=1
-else
-  warn "GitHub CLI not authenticated — skipping repo cloning."
-  info "Authenticate later with 'gh auth login', then run:"
-  info "  cd ~/repos && gh repo list $GITHUB_USER --limit 200 --json name -q '.[].name' | xargs -I{} gh repo clone $GITHUB_USER/{}"
-fi
-
-# Now that repo cloning is done, clear the deferred GH_TOKEN.
-if [[ "${_GH_TOKEN_DEFERRED:-}" == "true" ]]; then
-  unset GH_TOKEN 2>/dev/null || true
-  info "Cleared deferred GH_TOKEN (repo cloning complete)."
-fi
-
 # ============================================================================
 section "🎉 Setup Complete!"
 echo ""
@@ -1216,72 +1184,3 @@ SIGNOFF_NAME="${GIT_NAME:-${GITHUB_USER:-hacker}}"
 # Use just the first name if we have a full name
 SIGNOFF_FIRST=$(echo "$SIGNOFF_NAME" | awk '{print $1}')
 echo -e "${BOLD}Happy hacking, ${SIGNOFF_FIRST}. 🚀${NC}"
-
-# --- Deferred clone (non-interactive recovery) ---
-# If the clone step was skipped (e.g., gh wasn't on PATH yet, or
-# GH_TOKEN arrived late), retry now that everything is installed.
-if [[ ! -t 0 ]] && [[ -z "${_REPOS_CLONED:-}" ]]; then
-  # Source the bashrc to get PATH, nvm, gh, etc.
-  # shellcheck source=/dev/null
-  . "$HOME/.bashrc" 2>/dev/null || true
-
-  if command_exists gh && gh auth status &>/dev/null; then
-    echo ""
-    info "Retrying repo clone now that tools are on PATH..."
-
-    GITHUB_USER=$(gh api user --jq '.login' 2>/dev/null) || true
-    if [[ -n "$GITHUB_USER" ]]; then
-      # Re-source config for GITHUB_ORG
-      [[ -f "$WS_CONFIG" ]] && . "$WS_CONFIG"
-
-      REPO_LIST=$(gh repo list "$GITHUB_USER" --limit 200 --json name,isPrivate \
-        --jq '.[] | "\(.name)\t\(.isPrivate)"' 2>/dev/null) || true
-
-      if [[ -n "$REPO_LIST" ]]; then
-        CLONE_COUNT=0
-        SKIP_COUNT=0
-        while IFS=$'\t' read -r REPO_NAME IS_PRIVATE; do
-          DEST="$REPOS_DIR/$REPO_NAME"
-          if [[ -d "$DEST" ]]; then
-            ((SKIP_COUNT++)) || true
-          else
-            HTTPS_URL="https://github.com/${GITHUB_USER}/${REPO_NAME}.git"
-            if git clone --quiet "$HTTPS_URL" "$DEST" 2>/dev/null; then
-              PRIVATE_TAG=""
-              [[ "$IS_PRIVATE" == "true" ]] && PRIVATE_TAG=" 🔒"
-              success "$REPO_NAME${PRIVATE_TAG}"
-              ((CLONE_COUNT++)) || true
-            fi
-          fi
-        done <<< "$REPO_LIST"
-        info "Deferred clone: $CLONE_COUNT cloned, $SKIP_COUNT already present"
-      fi
-
-      # Also clone org repos if configured
-      if [[ -n "${GITHUB_ORG:-}" ]] && [[ "$GITHUB_ORG" != "$GITHUB_USER" ]]; then
-        ORG_REPO_LIST=$(gh repo list "$GITHUB_ORG" --limit 200 --json name,isPrivate \
-          --jq '.[] | "\(.name)\t\(.isPrivate)"' 2>/dev/null) || true
-
-        if [[ -n "$ORG_REPO_LIST" ]]; then
-          ORG_CLONE_COUNT=0
-          ORG_SKIP_COUNT=0
-          while IFS=$'\t' read -r REPO_NAME IS_PRIVATE; do
-            DEST="$REPOS_DIR/$REPO_NAME"
-            if [[ -d "$DEST" ]]; then
-              ((ORG_SKIP_COUNT++)) || true
-            else
-              HTTPS_URL="https://github.com/${GITHUB_ORG}/${REPO_NAME}.git"
-              if git clone --quiet "$HTTPS_URL" "$DEST" 2>/dev/null; then
-                PRIVATE_TAG=""
-                [[ "$IS_PRIVATE" == "true" ]] && PRIVATE_TAG=" 🔒"
-                success "$REPO_NAME${PRIVATE_TAG} (${GITHUB_ORG})"
-                ((CLONE_COUNT++)) || true
-              fi
-            fi
-          done <<< "$ORG_REPO_LIST"
-          info "Deferred org clone ($GITHUB_ORG): $ORG_CLONE_COUNT cloned, $ORG_SKIP_COUNT already present"
-        fi
-      fi
-    fi
-  fi
-fi

@@ -76,7 +76,7 @@ The scripts share ~80% of their code. The differences are driven by what each en
 | **bat/fd names** | `batcat`/`fdfind` (Debian conflict) | `batcat`/`fdfind` (Ubuntu conflict) | `bat`/`fd` (clean) |
 | **Granted install** | APT repo | APT repo | Binary download (no DNF repo) |
 | **Tailscale** | No | Yes (mesh VPN) | Yes (mesh VPN + firewalld trusted zone) |
-| **Steps** | 15 | 17 | 17 |
+| **Steps** | 14 | 16 | 16 |
 
 ### When to use which
 
