@@ -364,6 +364,10 @@ success "AWS CLI $(aws --version 2>&1 | awk '{print $1}') ready."
 # Granted: no official DNF repo exists. Download the binary from GitHub
 # releases. The Xubuntu version uses APT; the Crostini version uses APT.
 # On Fedora we go direct.
+#
+# NOTE: Common Fate is winding down operations. Granted is MIT-licensed and
+# will continue to work, but expect no new releases.
+# Docs: https://docs.commonfate.io/granted/getting-started
 if ! command_exists granted; then
   info "Installing Granted..."
   GRANTED_VERSION=$(curl -fsSL https://api.github.com/repos/common-fate/granted/releases/latest | \
