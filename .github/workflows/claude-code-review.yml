@@ -6,6 +6,10 @@
 #
 # The action already knows the PR context (repo, number, diff, branch) when
 # triggered by pull_request events. We just need to tell it what to focus on.
+#
+# The reviewer is read-only by design: it reads the diff and source files,
+# then returns a single consolidated review. The action posts the result.
+# No incremental commenting — one pass, one artifact.
 # ============================================================================
 
 name: Claude Code Review
@@ -60,8 +64,15 @@ jobs:
             - Only comment on actual problems or meaningful improvements
             - Do NOT comment on style, formatting, or naming preferences
             - Do NOT give positive feedback or praise — just flag issues
-            - Keep it concise: one comment per issue, with file and line reference
+            - Do NOT propose inline fix code — describe the problem and why it
+              matters, not the solution. Fixes go through a separate commit.
             - If nothing significant is wrong, say so in one sentence and move on
+
+            Output format:
+            - Read the full diff and any source files needed for context
+            - Collect ALL findings before producing any output
+            - Return a single consolidated review — do not post comments
+              incrementally as you discover issues
           claude_args: |
-            --max-turns 15
-            --allowedTools "Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr comment:*),Read,mcp__github_inline_comment__create_inline_comment"
+            --max-turns 10
+            --allowedTools "Bash(gh pr diff:*),Bash(gh pr view:*),Read"
