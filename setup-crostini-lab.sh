@@ -162,6 +162,10 @@ fi
 # Harvest sudo credentials up front so the password prompt doesn't ambush
 # us mid-install when the credential cache expires.
 sudo -v
+# Keep sudo alive in the background — prevents timeout during long installs.
+(while kill -0 "$$" 2>/dev/null; do sudo -n true; sleep 50; done) &
+_SUDO_KEEPALIVE_PID=$!
+trap 'kill "$_SUDO_KEEPALIVE_PID" 2>/dev/null; exit' EXIT
 
 # --- Create workstation config template if it doesn't exist ---
 WS_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/workstation-bootstrap"
@@ -469,6 +473,7 @@ success "gh $(gh --version 2>/dev/null | head -1) ready."
 
 # Ensure gh is authenticated (needed for repo cloning later)
 # GH_TOKEN is the standard env var that gh respects natively.
+_GH_TOKEN_DEFERRED=false
 if ! gh auth status &>/dev/null; then
   if [[ -n "${GH_TOKEN:-}" ]]; then
     # Token provided via environment — authenticate non-interactively.
@@ -479,7 +484,15 @@ if ! gh auth status &>/dev/null; then
     _SAVED_TOKEN="$GH_TOKEN"
     unset GH_TOKEN
     if echo "$_SAVED_TOKEN" | gh auth login --with-token 2>&1; then
-      : # auth succeeded, continue
+      # Verify credentials actually persisted to the file-based store.
+      # On a fresh Crostini container there is no desktop keyring, so gh
+      # may report success but fail to write hosts.yml.
+      if ! gh auth status &>/dev/null; then
+        warn "gh credential store is empty — no desktop keyring available."
+        info "Keeping GH_TOKEN in environment until repo cloning is done."
+        export GH_TOKEN="$_SAVED_TOKEN"
+        _GH_TOKEN_DEFERRED=true
+      fi
     else
       warn "GH_TOKEN authentication failed (bad token? expired? wrong scopes?)."
       info "Continuing without GitHub auth — remaining tools will still install."
@@ -532,9 +545,12 @@ else
   warn "GitHub auth skipped — repo cloning will only work for public repos."
 fi
 
-# Clear GH_TOKEN — credentials are now stored in gh's credential store.
-# Leaving GH_TOKEN set can interfere with npm, VS Code, and other tools.
-unset GH_TOKEN 2>/dev/null || true
+# Clear GH_TOKEN unless we deferred it for the repo-cloning step.
+# Leaving GH_TOKEN set can interfere with npm, VS Code, and other tools,
+# but without a desktop keyring it's the only way gh stays authenticated.
+if [[ "$_GH_TOKEN_DEFERRED" != "true" ]]; then
+  unset GH_TOKEN 2>/dev/null || true
+fi
 
 # --- 11. VS Code -------------------------------------------------------------
 section "11/$TOTAL_STEPS — VS Code"
@@ -1160,6 +1176,13 @@ else
   info "Authenticate later with 'gh auth login', then run:"
   info "  cd ~/repos && gh repo list $GITHUB_USER --limit 200 --json name -q '.[].name' | xargs -I{} gh repo clone $GITHUB_USER/{}"
 fi
+
+# Now that repo cloning is done, clear the deferred GH_TOKEN.
+if [[ "${_GH_TOKEN_DEFERRED:-}" == "true" ]]; then
+  unset GH_TOKEN 2>/dev/null || true
+  info "Cleared deferred GH_TOKEN (repo cloning complete)."
+fi
+
 # ============================================================================
 section "🎉 Setup Complete!"
 echo ""
