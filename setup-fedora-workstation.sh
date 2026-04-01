@@ -361,20 +361,18 @@ fi
 require aws "AWS CLI"
 success "AWS CLI $(aws --version 2>&1 | awk '{print $1}') ready."
 
-# Granted: no official DNF repo exists. Download the binary from GitHub
-# releases. The Xubuntu version uses APT; the Crostini version uses APT.
-# On Fedora we go direct.
-#
-# NOTE: Common Fate is winding down operations. Granted is MIT-licensed and
-# will continue to work, but expect no new releases.
+# Granted: repo moved from common-fate/granted to fwdcloudsec/granted after
+# Common Fate wound down. The releases.commonfate.io CDN is dead. Download
+# directly from GitHub releases. Granted is MIT-licensed and will keep working,
+# but expect no new releases.
 # Docs: https://docs.commonfate.io/granted/getting-started
 if ! command_exists granted; then
   info "Installing Granted..."
-  GRANTED_VERSION=$(curl -fsSL https://api.github.com/repos/common-fate/granted/releases/latest | \
+  GRANTED_VERSION=$(curl -fsSL https://api.github.com/repos/fwdcloudsec/granted/releases/latest | \
     python3 -c 'import sys,json;print(json.load(sys.stdin)["tag_name"].lstrip("v"))' 2>/dev/null) || true
 
   if [[ -n "${GRANTED_VERSION:-}" ]]; then
-    GRANTED_URL="https://releases.commonfate.io/granted/v${GRANTED_VERSION}/granted_${GRANTED_VERSION}_linux_x86_64.tar.gz"
+    GRANTED_URL="https://github.com/fwdcloudsec/granted/releases/download/v${GRANTED_VERSION}/granted_${GRANTED_VERSION}_linux_x86_64.tar.gz"
     curl -fsSL "$GRANTED_URL" -o /tmp/granted.tar.gz
     tar -xzf /tmp/granted.tar.gz -C /tmp granted assume
     sudo install -m 0755 /tmp/granted /usr/local/bin/granted

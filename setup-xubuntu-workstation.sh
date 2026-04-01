@@ -40,7 +40,7 @@
 #   3.  Python 3 + pip + venv
 #   4.  Node.js (LTS via nvm)
 #   5.  Go (latest stable)
-#   6.  AWS CLI v2 + Granted (account switching via APT)
+#   6.  AWS CLI v2 + Granted (account switching)
 #   7.  Terraform + tfswitch
 #   8.  kubectl + eksctl + Helm
 #   9.  Docker Engine + docker-compose (full daemon)
@@ -326,15 +326,26 @@ fi
 require aws "AWS CLI"
 success "AWS CLI $(aws --version 2>&1 | awk '{print $1}') ready."
 
+# Granted: repo moved from common-fate/granted to fwdcloudsec/granted after
+# Common Fate wound down. The releases.commonfate.io CDN and APT repo are dead.
+# Download directly from GitHub releases. Granted is MIT-licensed and will keep
+# working, but expect no new releases.
+# Docs: https://docs.commonfate.io/granted/getting-started
 if ! command_exists granted; then
-  info "Installing Granted via APT..."
-  wget -qO- https://apt.releases.commonfate.io/gpg | \
-    sudo gpg --dearmor -o /usr/share/keyrings/common-fate-linux.gpg 2>/dev/null
-  echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/common-fate-linux.gpg] \
-    https://apt.releases.commonfate.io stable main" | \
-    sudo tee /etc/apt/sources.list.d/common-fate.list >/dev/null
-  sudo apt-get update -qq
-  sudo apt-get install -y -qq granted
+  info "Installing Granted..."
+  GRANTED_VERSION=$(curl -fsSL https://api.github.com/repos/fwdcloudsec/granted/releases/latest | \
+    python3 -c 'import sys,json;print(json.load(sys.stdin)["tag_name"].lstrip("v"))' 2>/dev/null) || true
+
+  if [[ -n "${GRANTED_VERSION:-}" ]]; then
+    GRANTED_URL="https://github.com/fwdcloudsec/granted/releases/download/v${GRANTED_VERSION}/granted_${GRANTED_VERSION}_linux_x86_64.tar.gz"
+    curl -fsSL "$GRANTED_URL" -o /tmp/granted.tar.gz
+    tar -xzf /tmp/granted.tar.gz -C /tmp granted assume
+    sudo install -m 0755 /tmp/granted /usr/local/bin/granted
+    sudo install -m 0755 /tmp/assume /usr/local/bin/assume
+    rm -f /tmp/granted.tar.gz /tmp/granted /tmp/assume
+  else
+    warn "Could not determine Granted version. Skipping."
+  fi
 fi
 
 if command_exists granted; then
