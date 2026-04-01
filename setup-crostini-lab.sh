@@ -164,6 +164,8 @@ fi
 sudo -v
 # Keep sudo alive in the background — prevents timeout during long installs.
 (while kill -0 "$$" 2>/dev/null; do sudo -n true; sleep 50; done) &
+_SUDO_KEEPALIVE_PID=$!
+trap 'kill "$_SUDO_KEEPALIVE_PID" 2>/dev/null; exit' EXIT
 
 # --- Create workstation config template if it doesn't exist ---
 WS_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/workstation-bootstrap"
