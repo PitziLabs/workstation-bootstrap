@@ -485,7 +485,7 @@ if ! gh auth status &>/dev/null; then
       # Verify credentials actually persisted to the file-based store.
       # On a fresh Crostini container there is no desktop keyring, so gh
       # may report success but fail to write hosts.yml.
-      if [[ ! -s "${XDG_CONFIG_HOME:-$HOME/.config}/gh/hosts.yml" ]]; then
+      if ! gh auth status &>/dev/null; then
         warn "gh credential store is empty — no desktop keyring available."
         info "Keeping GH_TOKEN in environment until repo cloning is done."
         export GH_TOKEN="$_SAVED_TOKEN"
