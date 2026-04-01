@@ -74,5 +74,5 @@ jobs:
             - Return a single consolidated review — do not post comments
               incrementally as you discover issues
           claude_args: |
-            --max-turns 10
+            --max-turns 15
             --allowedTools "Bash(gh pr diff:*),Bash(gh pr view:*),Read"
