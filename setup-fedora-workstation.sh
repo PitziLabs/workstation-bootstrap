@@ -4,7 +4,7 @@
 # Fedora KDE Plasma on Proxmox VM — DevOps workstation bootstrap
 #
 # Author:  Chris Pitzi — PitziLabs (https://github.com/PitziLabs)
-# Updated: 2026-03-26
+# Updated: 2026-04-01
 #
 # Lineage: Forked from setup-xubuntu-workstation.sh v1, which was forked from
 #          setup-crostini-lab.sh v4. The Crostini version targets Chromebook
@@ -55,7 +55,6 @@
 #  14.  Shell config (starship prompt, aliases, PATH wiring)
 #  15.  XRDP configuration (remote desktop — KDE Plasma X11 session)
 #  16.  Tailscale (mesh VPN)
-#  16.  XRDP configuration (remote desktop — KDE Plasma X11 session)
 #
 # Changes from Xubuntu version:
 #   - Package manager: dnf instead of apt-get
@@ -1158,6 +1157,15 @@ if ! command_exists xrdp; then
   sudo dnf install -y -q xrdp xorgxrdp
 fi
 
+# Fedora 43+ ships KDE as Wayland-only. The plasma-workspace-x11 package
+# provides the X11 session backend that startplasma-x11 needs. Without it,
+# Xvnc starts, finds no session to launch, and exits immediately — producing
+# the cryptic "VNC server closed connection" error in the xrdp log.
+if ! rpm -q plasma-workspace-x11 &>/dev/null; then
+  info "Installing plasma-workspace-x11 (required for XRDP X11 sessions)..."
+  sudo dnf install -y -q plasma-workspace-x11
+fi
+
 # SELinux: allow xrdp to connect and bind.
 # Fedora enforces SELinux by default. Without this, xrdp silently fails to
 # start or drops connections with "cannot read private key" even when file
@@ -1214,6 +1222,17 @@ unset XDG_RUNTIME_DIR
 
 # Force X11 session type. XRDP cannot render Wayland.
 export XDG_SESSION_TYPE=x11
+
+# Force software rendering for KWin. On a headless Xvnc display with no GPU,
+# kwin_x11 tries OpenGL compositing, fails to initialize a GL context, and
+# hangs until systemd's start timeout kills it — producing a black screen
+# with plasmashell running but no window manager. These variables force
+# XRender compositing and software GL so kwin actually starts.
+# Discovered on Fedora 43 KDE (2026-04-01).
+export KWIN_COMPOSE=O2
+export LIBGL_ALWAYS_SOFTWARE=1
+export KWIN_OPENGL_INTERFACE=egl
+export QT_XCB_GL_INTEGRATION=none
 
 exec startplasma-x11
 STARTWM
