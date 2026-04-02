@@ -42,4 +42,7 @@ Key platform differences to keep in mind when editing:
 ## CI/CD
 
 - **Claude Code Review** (`.github/workflows/claude-code-review.yml`): Runs on every non-draft PR. Read-only review focused on bash correctness, idempotency, and security. Skips `.md` and `docs/` changes.
+- **ShellCheck** (`.github/workflows/shellcheck.yml`): Runs on every non-draft PR
+  that touches `.sh` files. Static analysis at `--severity=warning`. Required
+  status check for branch protection.
 - **Claude Code Responder** (`.github/workflows/claude.yml`): Triggered by `@claude` mentions in issues/PR comments.
