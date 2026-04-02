@@ -4,6 +4,10 @@
 # Responds when someone tags @claude in an issue or PR comment/review.
 # This is the interactive assistant — it does whatever is asked in the comment.
 #
+# When triggered from an issue, Claude Code reads the repo, implements the
+# requested changes, creates a PR, and enables auto-merge. The PR must pass
+# ShellCheck and Claude Code Review before it merges.
+#
 # This workflow only fires on explicit @claude mentions, so runtime is less
 # of a concern (the user is waiting for a response to a specific question).
 # ============================================================================
@@ -29,7 +33,7 @@ jobs:
       (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       pull-requests: write
       issues: write
       id-token: write
@@ -47,3 +51,4 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           claude_args: |
             --max-turns 10
+            --allowedTools "Bash(git add:*)" "Bash(git commit:*)" "Bash(git checkout:*)" "Bash(git switch:*)" "Bash(git push:*)" "Bash(git status:*)" "Bash(git diff:*)" "Bash(git log:*)" "Bash(git branch:*)" "Bash(gh pr create:*)" "Bash(gh pr merge:*)" "Bash(gh pr view:*)" "Bash(shellcheck:*)" "Read" "Edit" "Write"
