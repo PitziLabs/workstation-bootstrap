@@ -14,8 +14,6 @@ name: ShellCheck
 on:
   pull_request:
     types: [opened, synchronize, ready_for_review, reopened]
-    paths:
-      - "**.sh"
 
 jobs:
   shellcheck:
