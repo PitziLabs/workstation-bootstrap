@@ -172,6 +172,16 @@ sudo -v
 WS_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/workstation-bootstrap"
 if [[ ! -f "$WS_CONFIG_DIR/config" ]]; then
   mkdir -p "$WS_CONFIG_DIR"
+  if [[ -n "${GITHUB_ORG:-}" ]]; then
+    _ws_org_line="GITHUB_ORG=\"${GITHUB_ORG}\""
+  else
+    _ws_org_line='#GITHUB_ORG=""'
+  fi
+  if [[ -n "${GITHUB_DEFAULT_OWNER:-}" ]]; then
+    _ws_owner_line="GITHUB_DEFAULT_OWNER=\"${GITHUB_DEFAULT_OWNER}\""
+  else
+    _ws_owner_line='#GITHUB_DEFAULT_OWNER=""'
+  fi
   cat > "$WS_CONFIG_DIR/config" << WS_CONF
 # ============================================================================
 # Workstation bootstrap config — sourced by setup-*-workstation.sh scripts
@@ -186,12 +196,12 @@ if [[ ! -f "$WS_CONFIG_DIR/config" ]]; then
 # Set this to also clone all repos from a GitHub organization during
 # bootstrap. Leave empty to only clone your personal repos.
 # The bootstrap script clones BOTH personal and org repos when set.
-$(if [[ -n "\${GITHUB_ORG:-}" ]]; then echo "GITHUB_ORG=\"\$GITHUB_ORG\""; else echo "#GITHUB_ORG=\"\""; fi)
+${_ws_org_line}
 
 # --- Default owner for new repos ------------------------------------------
 # Used by the 'ghnew' alias to default gh repo create to this owner.
 # Leave empty to default to your personal account.
-$(if [[ -n "\${GITHUB_DEFAULT_OWNER:-}" ]]; then echo "GITHUB_DEFAULT_OWNER=\"\$GITHUB_DEFAULT_OWNER\""; else echo "#GITHUB_DEFAULT_OWNER=\"\""; fi)
+${_ws_owner_line}
 WS_CONF
   info "Created workstation config at $WS_CONFIG_DIR/config"
   info "Edit this file to set your GitHub org and other preferences."
@@ -849,7 +859,6 @@ section "14/$TOTAL_STEPS — Shell Configuration"
 
 BASHRC="$HOME/.bashrc"
 MARKER="# >>> setup-xubuntu-workstation >>>"
-END_MARKER="# <<< setup-xubuntu-workstation <<<"
 
 # Remove old block if re-running (check for both old and new markers)
 for marker_check in "# >>> setup-crostini-lab >>>" "$MARKER"; do
