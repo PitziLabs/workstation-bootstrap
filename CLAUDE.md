@@ -46,3 +46,11 @@ Key platform differences to keep in mind when editing:
   that touches `.sh` files. Static analysis at `--severity=warning`. Required
   status check for branch protection.
 - **Claude Code Responder** (`.github/workflows/claude.yml`): Triggered by `@claude` mentions in issues/PR comments.
+
+## Workflow
+
+When implementing an issue:
+
+- Work on the branch created for the issue; do not create additional branches.
+- Commit changes with descriptive messages.
+- **Open a pull request as the final step.** Do not stop at "pushed the branch" — the PR is part of the deliverable. PR title should match or clearly refine the issue title. PR body must include `Closes #<number>` so merge closes the issue, plus a short summary of what changed and why. Do not merge the PR yourself; auto-merge is configured and will handle it once checks pass.
