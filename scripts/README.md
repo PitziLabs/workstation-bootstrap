@@ -39,3 +39,9 @@ Example:
 5. Commit
 
 The next bootstrap run on any workstation will symlink it into `~/.local/bin/`.
+
+## Available tools
+
+| Tool | Description |
+|---|---|
+| `gh-issue` | Create GitHub issues without shell-escape drama; see the script header for full usage. |
