@@ -53,4 +53,10 @@ When implementing an issue:
 
 - Work on the branch created for the issue; do not create additional branches.
 - Commit changes with descriptive messages.
-- **Open a pull request as the final step.** Do not stop at "pushed the branch" — the PR is part of the deliverable. PR title should match or clearly refine the issue title. PR body must include `Closes #<number>` so merge closes the issue, plus a short summary of what changed and why. Do not merge the PR yourself; auto-merge is configured and will handle it once checks pass.
+- **PR creation includes arming auto-merge.** When implementation is complete, run `gh pr create` as the final step — do not stop at "pushed the branch." PR title should match or clearly refine the issue title. PR body must include `Closes #<number>` so merge closes the issue, plus a short summary of what changed and why. Immediately after opening the PR, arm auto-merge with the number returned from `gh pr create` (or `gh pr view --json number -q .number`):
+
+```bash
+gh pr merge PR_NUMBER --auto --squash --delete-branch
+```
+
+Auto-merge is a per-PR action, not a repo-wide default — without this command the PR will wait for a human click forever. Do not merge the PR yourself with a non-`--auto` merge; let the required status checks (ShellCheck, Claude Code Review) gate the merge and fire it when green. Skip auto-merge only if the PR is a draft — it won't arm on drafts and will error.
