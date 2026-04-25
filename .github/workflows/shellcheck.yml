@@ -1,12 +1,8 @@
 # ============================================================================
-# ShellCheck — Static Analysis for Bootstrap Scripts
+# ShellCheck — Static Analysis
 # ============================================================================
-# Runs ShellCheck against all three bootstrap scripts on every PR.
-# This is the first automated quality gate — catches quoting bugs, unset
-# variable references, non-portable syntax, and common bash pitfalls before
-# Claude Code Review even looks at the diff.
-#
-# Designed as a required status check for branch protection / auto-merge.
+# Thin wrapper around PitziLabs/shared-workflows/shellcheck.yml.
+# Required status check for branch protection / auto-merge.
 # ============================================================================
 
 name: ShellCheck
@@ -17,50 +13,9 @@ on:
 
 jobs:
   shellcheck:
-    if: github.event.pull_request.draft == false
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 1
-
-      - name: Run ShellCheck
-        run: |
-          # Install latest ShellCheck (ubuntu-latest ships an older version)
-          sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
-
-          echo "ShellCheck version: $(shellcheck --version | head -2 | tail -1)"
-          echo ""
-
-          SCRIPTS=(
-            setup-crostini-lab.sh
-            setup-xubuntu-workstation.sh
-            setup-fedora-workstation.sh
-          )
-
-          FAILED=0
-          for script in "${SCRIPTS[@]}"; do
-            if [[ -f "$script" ]]; then
-              echo "━━━ Checking $script ━━━"
-              if shellcheck --severity=warning --shell=bash "$script"; then
-                echo "✓ $script passed"
-              else
-                FAILED=1
-                echo "✗ $script has issues"
-              fi
-              echo ""
-            else
-              echo "⚠ $script not found (skipping)"
-            fi
-          done
-
-          if [[ "$FAILED" -eq 1 ]]; then
-            echo "::error::ShellCheck found issues in one or more scripts."
-            exit 1
-          fi
-
-          echo "All scripts passed ShellCheck."
+    uses: PitziLabs/shared-workflows/.github/workflows/shellcheck.yml@main
+    with:
+      scripts: |
+        setup-crostini-lab.sh
+        setup-xubuntu-workstation.sh
+        setup-fedora-workstation.sh
