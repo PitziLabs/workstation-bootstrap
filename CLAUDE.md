@@ -11,6 +11,7 @@ Three standalone bash scripts that bootstrap a fresh Linux environment into a fu
 | `setup-crostini-lab.sh` | Chromebook Crostini (Debian) | apt-get |
 | `setup-xubuntu-workstation.sh` | Xubuntu 24.04 LTS VM | apt-get |
 | `setup-fedora-workstation.sh` | Fedora KDE Plasma VM | dnf |
+| `setup-ubuntu-laptop.sh` | Ubuntu Desktop LTS (bare-metal laptop) | apt-get |
 
 ## There is no build/test/lint system
 
@@ -30,10 +31,11 @@ Key platform differences to keep in mind when editing:
 - **Crostini**: CLI-only Docker (no daemon), installs to `~/.local/bin` (broken sudo), `batcat`/`fdfind` naming
 - **Xubuntu**: Full Docker Engine, XRDP+XFCE, `batcat`/`fdfind` naming
 - **Fedora**: Full Docker Engine (removes podman first), XRDP+KDE Plasma X11, SELinux policy, firewalld rules, JavaScript polkit rules, `bat`/`fd` clean names, Granted installed via binary (no DNF repo)
+- **Ubuntu laptop**: Full Docker Engine, no XRDP, TLP replaces power-profiles-daemon, ThinkPad charge thresholds (75-80%), fwupd timer enabled, `batcat`/`fdfind` naming
 
 ## Editing guidelines
 
-- **All three scripts must stay in sync** for shared functionality. If you change how a tool is installed or configured in one script, apply the same change to the others (adapting for the package manager and platform).
+- **All four scripts must stay in sync** for shared functionality across the apt-based variants and adapted for Fedora's package manager. If you change how a tool is installed or configured in one script, apply the same change to the others (adapting for the package manager and platform).
 - **Every step must be idempotent.** Always check if something is already installed before installing it. Re-running the script must be safe.
 - **The `set -e` arithmetic trap**: `((count++))` returns exit code 1 when count is 0. Always use `((count++)) || true`.
 - **PATH bootstrapping**: Tools installed mid-script must be findable during the script. PATH is set at the top, not deferred to `.bashrc`.

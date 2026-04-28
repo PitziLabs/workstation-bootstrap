@@ -19,3 +19,4 @@ jobs:
         setup-crostini-lab.sh
         setup-xubuntu-workstation.sh
         setup-fedora-workstation.sh
+        setup-ubuntu-laptop.sh
