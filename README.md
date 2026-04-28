@@ -7,6 +7,7 @@ workstation-bootstrap/
 ├── setup-crostini-lab.sh          # Chromebook Crostini (Debian container)
 ├── setup-xubuntu-workstation.sh   # Xubuntu 24.04 LTS VM (Proxmox)
 ├── setup-fedora-workstation.sh    # Fedora KDE Plasma VM (Proxmox)
+├── setup-ubuntu-laptop.sh         # Ubuntu Desktop LTS on bare-metal laptop
 ├── README.md
 └── LICENSE
 ```
@@ -37,6 +38,12 @@ curl -sLO https://raw.githubusercontent.com/PitziLabs/workstation-bootstrap/main
 GH_TOKEN=ghp_yourtoken bash setup-fedora-workstation.sh
 ```
 
+**Ubuntu Desktop laptop (bare metal):**
+```bash
+curl -sLO https://raw.githubusercontent.com/PitziLabs/workstation-bootstrap/main/setup-ubuntu-laptop.sh
+GH_TOKEN=ghp_yourtoken bash setup-ubuntu-laptop.sh
+```
+
 Omit `GH_TOKEN=...` for interactive runs — the script will prompt you to authenticate via `gh auth login`.
 
 > **Why download first?** The `curl | bash` pattern sets `GH_TOKEN` for the `bash` process (not `curl`), but stdin is consumed by the pipe so interactive prompts won't work. Downloading first avoids both issues.
@@ -60,29 +67,33 @@ Every script installs the same toolchain:
 
 The scripts share ~80% of their code. The differences are driven by what each environment can and can't do.
 
-| Area | Crostini | Xubuntu VM | Fedora KDE VM |
-|---|---|---|---|
-| **Package manager** | `apt-get` (Debian) | `apt-get` (Ubuntu) | `dnf` (Fedora RPM) |
-| **Docker** | CLI-only (no daemon) | Full engine + daemon | Full engine + daemon (replaces podman) |
-| **Remote desktop** | N/A (local terminal) | XRDP + XFCE | XRDP + KDE Plasma X11 |
-| **SSH server** | No | Yes | Yes |
-| **SELinux** | No | No | Enforcing (xrdp policy configured) |
-| **Firewall** | None | None (ufw not default) | firewalld (port 3389 opened) |
-| **Polkit rules** | N/A | `.pkla` format | JavaScript `.rules` format |
-| **Compositor fix** | N/A | xfwm4 XML | KWin `kwinrc` |
-| **Wayland** | N/A | N/A (X11 default) | Forced to X11 for XRDP |
-| **VM integration** | N/A | qemu-guest-agent | qemu-guest-agent |
-| **Starship install** | `~/.local/bin` (broken sudo workaround) | `/usr/local/bin` | `/usr/local/bin` |
-| **bat/fd names** | `batcat`/`fdfind` (Debian conflict) | `batcat`/`fdfind` (Ubuntu conflict) | `bat`/`fd` (clean) |
-| **Granted install** | APT repo | APT repo | Binary download (no DNF repo) |
-| **Tailscale** | No | Yes (mesh VPN) | Yes (mesh VPN + firewalld trusted zone) |
-| **Steps** | 14 | 16 | 16 |
+| Area | Crostini | Xubuntu VM | Fedora KDE VM | Ubuntu laptop |
+|---|---|---|---|---|
+| **Package manager** | `apt-get` (Debian) | `apt-get` (Ubuntu) | `dnf` (Fedora RPM) | `apt-get` (Ubuntu) |
+| **Docker** | CLI-only (no daemon) | Full engine + daemon | Full engine + daemon (replaces podman) | Full engine + daemon |
+| **Remote desktop** | N/A (local terminal) | XRDP + XFCE | XRDP + KDE Plasma X11 | N/A (local GNOME) |
+| **SSH server** | No | Yes | Yes | Yes |
+| **SELinux** | No | No | Enforcing (xrdp policy configured) | No |
+| **Firewall** | None | None (ufw not default) | firewalld (port 3389 opened) | None (ufw not default) |
+| **Polkit rules** | N/A | `.pkla` format | JavaScript `.rules` format | N/A |
+| **Compositor fix** | N/A | xfwm4 XML | KWin `kwinrc` | N/A |
+| **Wayland** | N/A | N/A (X11 default) | Forced to X11 for XRDP | Default (GNOME local) |
+| **VM integration** | N/A | qemu-guest-agent | qemu-guest-agent | N/A (bare metal) |
+| **Power management** | N/A | N/A | N/A | TLP (replaces power-profiles-daemon) |
+| **Firmware updates** | N/A | N/A | N/A | fwupd (LVFS) |
+| **Battery thresholds** | N/A | N/A | N/A | ThinkPad: 75-80% (configurable) |
+| **Starship install** | `~/.local/bin` (broken sudo workaround) | `/usr/local/bin` | `/usr/local/bin` | `/usr/local/bin` |
+| **bat/fd names** | `batcat`/`fdfind` (Debian conflict) | `batcat`/`fdfind` (Ubuntu conflict) | `bat`/`fd` (clean) | `batcat`/`fdfind` (Ubuntu conflict) |
+| **Granted install** | APT repo | APT repo | Binary download (no DNF repo) | APT repo |
+| **Tailscale** | No | Yes (mesh VPN) | Yes (mesh VPN + firewalld trusted zone) | Yes (mesh VPN) |
+| **Steps** | 14 | 16 | 16 | 16 |
 
 ### When to use which
 
 - **Crostini** — You're on a Chromebook and want a local dev environment. Lightweight, disposable, no Docker daemon (point `DOCKER_HOST` at a remote). Start here.
 - **Xubuntu** — You have a Proxmox host (or any hypervisor) and want a persistent workhorse VM with full Docker. XFCE is lighter on resources. Good default.
 - **Fedora KDE** — You want KDE Plasma's desktop, Fedora's fresh packages, and SELinux enforcing by default. Slightly heavier, more opinionated, better desktop experience for power users.
+- **Ubuntu laptop** — You're sitting in front of a real laptop (developed against a refurbished ThinkPad T14, but works for any Ubuntu Desktop machine). Same toolchain as Xubuntu, no XRDP/QEMU agent, plus TLP for battery thresholds and fwupd for firmware updates. Use this for bare metal; use Xubuntu/Fedora for VMs.
 
 ## Why this exists
 
@@ -245,6 +256,11 @@ The workstation config file at `~/.config/workstation-bootstrap/config` is never
 - Proxmox VE host (or any hypervisor)
 - Fedora KDE Plasma installed as a VM (KDE Spin ISO or Fedora Everything + KDE group)
 - At least 2 vCPUs, 8 GiB RAM, 50 GiB disk recommended
+
+**Ubuntu Desktop laptop:**
+- Any laptop running Ubuntu Desktop 24.04 LTS or newer
+- ThinkPad recommended for charge-threshold support (script auto-detects and skips on unsupported hardware)
+- ~10 minutes and an internet connection
 
 ## Credits
 
