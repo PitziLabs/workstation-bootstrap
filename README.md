@@ -59,7 +59,7 @@ Every script installs the same toolchain:
 | **Containers** | Docker (see variant differences below) |
 | **Dev tools** | VS Code (with extensions + settings), Claude Code, GitHub CLI, git (configured) |
 | **CLI tools** | jq, yq, bat, ripgrep, fd-find, fzf, tree, tmux, shellcheck, direnv, pipx, tldr |
-| **Networking** | dig/nslookup, net-tools, traceroute, nmap, whois, Tailscale (VM variants only) |
+| **Networking** | dig/nslookup, net-tools, traceroute, nmap, whois |
 | **Shell** | Starship prompt (custom config), aliases, functions, direnv |
 | **Your code** | Auto-clones all your GitHub repos into `~/repos/` |
 
@@ -85,8 +85,7 @@ The scripts share ~80% of their code. The differences are driven by what each en
 | **Starship install** | `~/.local/bin` (broken sudo workaround) | `/usr/local/bin` | `/usr/local/bin` | `/usr/local/bin` |
 | **bat/fd names** | `batcat`/`fdfind` (Debian conflict) | `batcat`/`fdfind` (Ubuntu conflict) | `bat`/`fd` (clean) | `batcat`/`fdfind` (Ubuntu conflict) |
 | **Granted install** | APT repo | APT repo | Binary download (no DNF repo) | APT repo |
-| **Tailscale** | No | Yes (mesh VPN) | Yes (mesh VPN + firewalld trusted zone) | Yes (mesh VPN) |
-| **Steps** | 14 | 16 | 16 | 16 |
+| **Steps** | 14 | 15 | 15 | 15 |
 
 ### When to use which
 
