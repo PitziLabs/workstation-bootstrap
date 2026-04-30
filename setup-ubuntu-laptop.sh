@@ -55,7 +55,6 @@
 #  13.  Quality-of-life CLI tools
 #  14.  Shell config (starship prompt, aliases, PATH wiring)
 #  15.  Laptop power management (TLP) + firmware updates (fwupd)
-#  16.  Tailscale (mesh VPN)
 #
 # Changes from Xubuntu version:
 #   - Removed: XRDP step entirely (step 15 in xubuntu)
@@ -65,6 +64,8 @@
 #   - Added: TLP + tlp-rdw with ThinkPad charge thresholds (step 15)
 #   - Added: fwupd with refresh timer enabled (step 15)
 #   - Added: Removal of power-profiles-daemon (conflicts with TLP)
+#   - Removed:  Tailscale step (WireGuard on Firewalla replaces it as the
+#               canonical home VPN; bootstrap stays out of VPN config)
 #   - Modified: Marker migration loop now also handles xubuntu/fedora markers
 #   - Modified: Starship config docker_context module retained as-is
 # ============================================================================
@@ -136,7 +137,7 @@ require() {
   fi
 }
 
-TOTAL_STEPS=16
+TOTAL_STEPS=15
 
 # --- Preflight --------------------------------------------------------------
 section "Preflight Checks"
@@ -1205,27 +1206,6 @@ fi
 sudo systemctl enable --now fwupd-refresh.timer 2>/dev/null || true
 success "fwupd ready — run 'fwupdmgr refresh && fwupdmgr update' to apply firmware."
 
-# --- 16. Tailscale (mesh VPN) ------------------------------------------------
-section "$TOTAL_STEPS/$TOTAL_STEPS — Tailscale (mesh VPN)"
-
-if ! command_exists tailscale; then
-  info "Installing Tailscale..."
-  curl -fsSL https://tailscale.com/install.sh | sh
-fi
-
-if command_exists tailscale; then
-  sudo systemctl enable --now tailscaled
-  success "Tailscale installed and service enabled."
-  if ! tailscale status &>/dev/null; then
-    info "Run 'sudo tailscale up' to authenticate and join your tailnet."
-    info "Then SSH from your Chromebook using the Tailscale IP or MagicDNS name."
-  else
-    success "Tailscale is connected: $(tailscale ip -4 2>/dev/null || echo '<run tailscale up>')"
-  fi
-else
-  warn "Tailscale install failed. Install manually: https://tailscale.com/download/linux"
-fi
-
 # ============================================================================
 section "🎉 Setup Complete!"
 echo ""
@@ -1239,7 +1219,6 @@ echo "  • Run 'docker run hello-world' to verify Docker"
 echo "  • Run 'aws configure' (or 'aws configure sso') to set up AWS creds"
 echo "  • Run 'assume <profile>' to switch AWS accounts via Granted"
 echo "  • Run 'claude' to authenticate Claude Code"
-echo "  • Run 'sudo tailscale up' to join your tailnet"
 echo "  • Run 'fwupdmgr refresh && fwupdmgr update' to apply firmware updates"
 echo "  • Run 'sudo tlp-stat -s' and 'sudo tlp-stat -b' to verify TLP"
 echo "  • Edit /etc/tlp.d/01-thinkpad-charge-thresholds.conf to change defaults"
@@ -1252,7 +1231,7 @@ echo "  Cloud/Ops:    AWS CLI v2, Granted, Terraform, tfswitch, kubectl, eksctl,
 echo "  Containers:   Docker Engine + Compose"
 echo "  Dev tools:    git, gh, VS Code, Claude Code, jq, yq, ripgrep, fzf, bat, tmux"
 echo "  Shell:        Starship prompt, direnv, shellcheck"
-echo "  Remote:       SSH (port 22), Tailscale (mesh VPN)"
+echo "  Remote:       SSH (port 22)"
 echo "  Power:        TLP (battery 75-80% on ThinkPads), fwupd (LVFS firmware)"
 echo "  Config:       ~/.config/workstation-bootstrap/config (org: ${GITHUB_ORG:-<none>})"
 if [[ -n "${GITHUB_ORG:-}" ]]; then

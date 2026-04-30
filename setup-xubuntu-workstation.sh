@@ -50,7 +50,6 @@
 #  13.  Quality-of-life CLI tools
 #  14.  Shell config (starship prompt, aliases, PATH wiring)
 #  15.  XRDP configuration (remote desktop from Chromebook)
-#  16.  Tailscale (mesh VPN)
 #
 # Changes from Crostini version:
 #   - Docker: full engine (docker-ce + containerd) instead of CLI-only
@@ -130,7 +129,7 @@ require() {
   fi
 }
 
-TOTAL_STEPS=16
+TOTAL_STEPS=15
 
 # --- Preflight --------------------------------------------------------------
 section "Preflight Checks"
@@ -1178,27 +1177,6 @@ sudo systemctl enable --now xrdp
 success "XRDP configured — connect via Microsoft Remote Desktop at $(hostname -I | awk '{print $1}'):3389"
 info "Recommended: set RDP client resolution to 1920x1080 (4K causes rendering issues with software GL)"
 
-# --- 16. Tailscale (mesh VPN) ------------------------------------------------
-section "$TOTAL_STEPS/$TOTAL_STEPS — Tailscale (mesh VPN)"
-
-if ! command_exists tailscale; then
-  info "Installing Tailscale..."
-  curl -fsSL https://tailscale.com/install.sh | sh
-fi
-
-if command_exists tailscale; then
-  sudo systemctl enable --now tailscaled
-  success "Tailscale installed and service enabled."
-  if ! tailscale status &>/dev/null; then
-    info "Run 'sudo tailscale up' to authenticate and join your tailnet."
-    info "Then connect via RDP from your Chromebook using the Tailscale IP."
-  else
-    success "Tailscale is connected: $(tailscale ip -4 2>/dev/null || echo '<run tailscale up>')"
-  fi
-else
-  warn "Tailscale install failed. Install manually: https://tailscale.com/download/linux"
-fi
-
 # ============================================================================
 section "🎉 Setup Complete!"
 echo ""
@@ -1212,7 +1190,6 @@ echo "  • Run 'docker run hello-world' to verify Docker"
 echo "  • Run 'aws configure' (or 'aws configure sso') to set up AWS creds"
 echo "  • Run 'assume <profile>' to switch AWS accounts via Granted"
 echo "  • Run 'claude' to authenticate Claude Code"
-echo "  • Run 'sudo tailscale up' to join your tailnet"
 echo "  • Run 'projects' to see your cloned repos at a glance"
 echo "  • Run 'pull-all' to git pull every repo in ~/repos/"
 echo "  • Take a Proxmox snapshot of this VM (your known-good baseline)"
@@ -1223,7 +1200,7 @@ echo "  Cloud/Ops:    AWS CLI v2, Granted, Terraform, tfswitch, kubectl, eksctl,
 echo "  Containers:   Docker Engine + Compose"
 echo "  Dev tools:    git, gh, VS Code, Claude Code, jq, yq, ripgrep, fzf, bat, tmux"
 echo "  Shell:        Starship prompt, direnv, shellcheck"
-echo "  Remote:       XRDP (port 3389), SSH (port 22), Tailscale (mesh VPN)"
+echo "  Remote:       XRDP (port 3389), SSH (port 22)"
 echo "  Config:       ~/.config/workstation-bootstrap/config (org: ${GITHUB_ORG:-<none>})"
 if [[ -n "${GITHUB_ORG:-}" ]]; then
   echo "  Your code:    ~/repos/ (${GITHUB_USER:-<configure gh>} + ${GITHUB_ORG} repos)"
