@@ -792,17 +792,24 @@ else
 fi
 
 # --- 12. Claude Code --------------------------------------------------------
+# Native binary installer (Anthropic's canonical install path as of Oct 2025).
+# The npm package now also ships a native binary rather than a Node entry —
+# but the standalone installer at ~/.local/bin/claude avoids the per-nvm-
+# version global package isolation that creates dangling references when
+# nvm switches versions or when claude self-updates.
+# Auto-update is enabled by default; set DISABLE_AUTOUPDATER=1 in the env
+# at install time to disable.
 section "12/$TOTAL_STEPS — Claude Code"
 
-if ! command_exists claude; then
-  info "Installing Claude Code..."
-  npm install -g --no-update-notifier @anthropic-ai/claude-code
+if ! command_exists claude || ! claude --version &>/dev/null; then
+  info "Installing Claude Code (native binary)..."
+  curl -fsSL https://claude.ai/install.sh | bash
 fi
 
 if command_exists claude; then
-  success "Claude Code installed. Run 'claude' to authenticate and get started."
+  success "Claude Code installed at $(which claude). Run 'claude' to authenticate."
 else
-  warn "Claude Code install failed. Try manually: npm install -g @anthropic-ai/claude-code"
+  warn "Claude Code install failed. Try manually: curl -fsSL https://claude.ai/install.sh | bash"
 fi
 
 # --- 13. Quality-of-life CLI tools ------------------------------------------
