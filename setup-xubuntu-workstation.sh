@@ -129,7 +129,7 @@ require() {
   fi
 }
 
-TOTAL_STEPS=15
+TOTAL_STEPS=16
 
 # --- Preflight --------------------------------------------------------------
 section "Preflight Checks"
@@ -1217,6 +1217,12 @@ sudo systemctl enable --now xrdp
 success "XRDP configured — connect via Microsoft Remote Desktop at $(hostname -I | awk '{print $1}'):3389"
 info "Recommended: set RDP client resolution to 1920x1080 (4K causes rendering issues with software GL)"
 
+# --- 16. Install scripts into ~/.local/bin ----------------------------------
+SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
+section "16/$TOTAL_STEPS — Installing Scripts into ~/.local/bin"
+bash "$SCRIPT_DIR/bootstrap/install-scripts.sh"
+success "Scripts installed."
+
 # ============================================================================
 section "🎉 Setup Complete!"
 echo ""
@@ -1234,6 +1240,7 @@ echo "  • Run 'projects' to see your cloned repos at a glance"
 echo "  • Run 'pull-all' to checkout default + git pull every repo in ~/repos/"
 echo "  • Run 'clean-all' to delete non-default local branches + pull every repo"
 echo "  • Take a Proxmox snapshot of this VM (your known-good baseline)"
+echo "  • See ~/.local/bin/gh-issue to try the new issue-drafting tool"
 echo ""
 echo -e "${BLUE}Installed tools summary:${NC}"
 echo "  Languages:    Python 3, Node.js (nvm), Go, Bash"
@@ -1242,6 +1249,7 @@ echo "  Containers:   Docker Engine + Compose"
 echo "  Dev tools:    git, gh, VS Code, Claude Code, jq, yq, ripgrep, fzf, bat, tmux"
 echo "  Shell:        Starship prompt, direnv, shellcheck"
 echo "  Remote:       XRDP (port 3389), SSH (port 22)"
+echo "  Scripts:      Custom CLI tools symlinked to ~/.local/bin/"
 echo "  Config:       ~/.config/workstation-bootstrap/config (org: ${GITHUB_ORG:-<none>})"
 if [[ -n "${GITHUB_ORG:-}" ]]; then
   echo "  Your code:    ~/repos/ (${GITHUB_USER:-<configure gh>} + ${GITHUB_ORG} repos)"

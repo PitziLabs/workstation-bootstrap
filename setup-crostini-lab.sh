@@ -133,7 +133,7 @@ require() {
   fi
 }
 
-TOTAL_STEPS=14
+TOTAL_STEPS=15
 
 # --- Preflight --------------------------------------------------------------
 section "Preflight Checks"
@@ -1201,6 +1201,12 @@ format = "[$hostname](bold dimmed green):"
 STARSHIP_CONF
 success "Starship config written."
 
+# --- 15. Install scripts into ~/.local/bin ----------------------------------
+SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
+section "15/$TOTAL_STEPS — Installing Scripts into ~/.local/bin"
+bash "$SCRIPT_DIR/bootstrap/install-scripts.sh"
+success "Scripts installed."
+
 # ============================================================================
 section "🎉 Setup Complete!"
 echo ""
@@ -1223,6 +1229,7 @@ echo "  Cloud/Ops:    AWS CLI v2, Granted, Terraform, tfswitch, kubectl, eksctl,
 echo "  Containers:   Docker CLI + Compose (no daemon)"
 echo "  Dev tools:    git, gh, VS Code, Claude Code, jq, yq, ripgrep, fzf, bat, tmux"
 echo "  Shell:        Starship prompt, direnv, shellcheck"
+echo "  Scripts:      Custom CLI tools symlinked to ~/.local/bin/"
 echo "  Config:       ~/.config/workstation-bootstrap/config (org: ${GITHUB_ORG:-<none>})"
 if [[ -n "${GITHUB_ORG:-}" ]]; then
   echo "  Your code:    ~/repos/ (${GITHUB_USER:-<configure gh>} + ${GITHUB_ORG} repos)"
