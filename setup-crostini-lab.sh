@@ -1011,75 +1011,8 @@ projects() {
   echo ""
 }
 
-# Pull every repo, switching to its default branch first
-pull-all() {
-  local ok=0 fail=0 unchanged=0
-  for dir in ~/repos/*/; do
-    [[ -d "$dir/.git" ]] || continue
-    local name default before after
-    name=$(basename "$dir")
-    default=$(git -C "$dir" symbolic-ref refs/remotes/origin/HEAD --short 2>/dev/null | sed 's|^origin/||')
-    if [[ -z "$default" ]] || ! git -C "$dir" checkout --quiet "$default" 2>/dev/null; then
-      echo -e "\033[1;33m  ⚠ $name (check manually)\033[0m"
-      ((fail++)) || true
-      continue
-    fi
-    before=$(git -C "$dir" rev-parse HEAD 2>/dev/null || echo "")
-    if ! git -C "$dir" pull --rebase --quiet 2>/dev/null; then
-      echo -e "\033[1;33m  ⚠ $name (check manually)\033[0m"
-      ((fail++)) || true
-      continue
-    fi
-    after=$(git -C "$dir" rev-parse HEAD)
-    if [[ "$before" == "$after" ]]; then
-      echo -e "\033[0;32m  ✓\033[0m $name ($default, up to date)"
-      ((unchanged++)) || true
-    else
-      echo -e "\033[0;32m  ✓\033[0m $name ($default)"
-      git -C "$dir" --no-pager diff --stat "$before..$after" | sed 's/^/      /'
-      ((ok++)) || true
-    fi
-  done
-  echo ""
-  echo "Pulled: $ok updated, $unchanged unchanged, $fail need attention"
-}
-
-# Force-delete every local branch except the default, then pull
-clean-all() {
-  local ok=0 fail=0 unchanged=0
-  for dir in ~/repos/*/; do
-    [[ -d "$dir/.git" ]] || continue
-    local name default branch before after removed=0
-    name=$(basename "$dir")
-    default=$(git -C "$dir" symbolic-ref refs/remotes/origin/HEAD --short 2>/dev/null | sed 's|^origin/||')
-    if [[ -z "$default" ]] || ! git -C "$dir" checkout --quiet "$default" 2>/dev/null; then
-      echo -e "\033[1;33m  ⚠ $name (check manually)\033[0m"
-      ((fail++)) || true
-      continue
-    fi
-    while IFS= read -r branch; do
-      [[ -z "$branch" || "$branch" == "$default" ]] && continue
-      git -C "$dir" branch -D "$branch" >/dev/null 2>&1 && ((removed++)) || true
-    done < <(git -C "$dir" branch --format='%(refname:short)')
-    before=$(git -C "$dir" rev-parse HEAD 2>/dev/null || echo "")
-    if ! git -C "$dir" pull --rebase --quiet 2>/dev/null; then
-      echo -e "\033[1;33m  ⚠ $name ($default, removed $removed, pull failed)\033[0m"
-      ((fail++)) || true
-      continue
-    fi
-    after=$(git -C "$dir" rev-parse HEAD)
-    if [[ "$before" == "$after" ]]; then
-      echo -e "\033[0;32m  ✓\033[0m $name ($default, removed $removed, up to date)"
-      ((unchanged++)) || true
-    else
-      echo -e "\033[0;32m  ✓\033[0m $name ($default, removed $removed)"
-      git -C "$dir" --no-pager diff --stat "$before..$after" | sed 's/^/      /'
-      ((ok++)) || true
-    fi
-  done
-  echo ""
-  echo "Cleaned: $ok updated, $unchanged unchanged, $fail need attention"
-}
+# pull-all and clean-all live in scripts/ and are symlinked into
+# ~/.local/bin by bootstrap/install-scripts.sh.
 
 # <<< setup-crostini-lab <<<
 BASHRC_BLOCK

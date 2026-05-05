@@ -45,3 +45,5 @@ The next bootstrap run on any workstation will symlink it into `~/.local/bin/`.
 | Tool | Description |
 |---|---|
 | `gh-issue` | Create GitHub issues without shell-escape drama; see the script header for full usage. |
+| `pull-all` | Switch every repo under `~/repos` to its default branch and pull, with a per-repo diffstat. |
+| `clean-all` | Force-delete every non-default local branch in each repo under `~/repos`, then pull. |
