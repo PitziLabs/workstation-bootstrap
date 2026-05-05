@@ -133,7 +133,7 @@ require() {
   fi
 }
 
-TOTAL_STEPS=14
+TOTAL_STEPS=15
 
 # --- Preflight --------------------------------------------------------------
 section "Preflight Checks"
@@ -1168,6 +1168,12 @@ format = "[$hostname](bold dimmed green):"
 STARSHIP_CONF
 success "Starship config written."
 
+# --- 15. Install scripts into ~/.local/bin ----------------------------------
+SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
+section "15/$TOTAL_STEPS — Installing Scripts into ~/.local/bin"
+bash "$SCRIPT_DIR/bootstrap/install-scripts.sh"
+success "Scripts installed."
+
 # ============================================================================
 section "🎉 Setup Complete!"
 echo ""
@@ -1182,6 +1188,7 @@ echo "  • Set DOCKER_HOST in ~/.bashrc if using a remote Docker daemon"
 echo "  • Run 'claude' to authenticate Claude Code"
 echo "  • Run 'projects' to see your cloned repos at a glance"
 echo "  • Run 'pull-all' to git pull every repo in ~/repos/"
+echo "  • See ~/.local/bin/gh-issue to try the new issue-drafting tool"
 echo ""
 echo -e "${BLUE}Installed tools summary:${NC}"
 echo "  Languages:    Python 3, Node.js (nvm), Go, Bash"
@@ -1189,6 +1196,7 @@ echo "  Cloud/Ops:    AWS CLI v2, Granted, Terraform, tfswitch, kubectl, eksctl,
 echo "  Containers:   Docker CLI + Compose (no daemon)"
 echo "  Dev tools:    git, gh, VS Code, Claude Code, jq, yq, ripgrep, fzf, bat, tmux"
 echo "  Shell:        Starship prompt, direnv, shellcheck"
+echo "  Scripts:      Custom CLI tools symlinked to ~/.local/bin/"
 echo "  Config:       ~/.config/workstation-bootstrap/config (org: ${GITHUB_ORG:-<none>})"
 if [[ -n "${GITHUB_ORG:-}" ]]; then
   echo "  Your code:    ~/repos/ (${GITHUB_USER:-<configure gh>} + ${GITHUB_ORG} repos)"
