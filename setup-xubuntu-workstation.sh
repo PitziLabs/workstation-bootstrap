@@ -995,15 +995,18 @@ projects() {
   echo ""
 }
 
-# Pull all repos at once
+# Pull every repo, switching to its default branch first
 pull-all() {
   local ok=0 fail=0
   for dir in ~/repos/*/; do
     if [[ -d "$dir/.git" ]]; then
-      local name
+      local name default
       name=$(basename "$dir")
-      if git -C "$dir" pull --rebase --quiet 2>/dev/null; then
-        echo -e "\033[0;32m  ✓\033[0m $name"
+      default=$(git -C "$dir" symbolic-ref refs/remotes/origin/HEAD --short 2>/dev/null | sed 's|^origin/||')
+      if [[ -n "$default" ]] \
+         && git -C "$dir" checkout --quiet "$default" 2>/dev/null \
+         && git -C "$dir" pull --rebase --quiet 2>/dev/null; then
+        echo -e "\033[0;32m  ✓\033[0m $name ($default)"
         ((ok++)) || true
       else
         echo -e "\033[1;33m  ⚠ $name (check manually)\033[0m"
@@ -1013,6 +1016,36 @@ pull-all() {
   done
   echo ""
   echo "Pulled: $ok ok, $fail need attention"
+}
+
+# Force-delete every local branch except the default, then pull
+clean-all() {
+  local ok=0 fail=0
+  for dir in ~/repos/*/; do
+    if [[ -d "$dir/.git" ]]; then
+      local name default branch removed=0
+      name=$(basename "$dir")
+      default=$(git -C "$dir" symbolic-ref refs/remotes/origin/HEAD --short 2>/dev/null | sed 's|^origin/||')
+      if [[ -z "$default" ]] || ! git -C "$dir" checkout --quiet "$default" 2>/dev/null; then
+        echo -e "\033[1;33m  ⚠ $name (check manually)\033[0m"
+        ((fail++)) || true
+        continue
+      fi
+      while IFS= read -r branch; do
+        [[ -z "$branch" || "$branch" == "$default" ]] && continue
+        git -C "$dir" branch -D "$branch" >/dev/null 2>&1 && ((removed++)) || true
+      done < <(git -C "$dir" branch --format='%(refname:short)')
+      if git -C "$dir" pull --rebase --quiet 2>/dev/null; then
+        echo -e "\033[0;32m  ✓\033[0m $name ($default, removed $removed)"
+        ((ok++)) || true
+      else
+        echo -e "\033[1;33m  ⚠ $name ($default, removed $removed, pull failed)\033[0m"
+        ((fail++)) || true
+      fi
+    fi
+  done
+  echo ""
+  echo "Cleaned: $ok ok, $fail need attention"
 }
 
 # <<< setup-xubuntu-workstation <<<
@@ -1204,7 +1237,8 @@ echo "  • Run 'aws configure' (or 'aws configure sso') to set up AWS creds"
 echo "  • Run 'assume <profile>' to switch AWS accounts via Granted"
 echo "  • Run 'claude' to authenticate Claude Code"
 echo "  • Run 'projects' to see your cloned repos at a glance"
-echo "  • Run 'pull-all' to git pull every repo in ~/repos/"
+echo "  • Run 'pull-all' to checkout default + git pull every repo in ~/repos/"
+echo "  • Run 'clean-all' to delete non-default local branches + pull every repo"
 echo "  • Take a Proxmox snapshot of this VM (your known-good baseline)"
 echo "  • See ~/.local/bin/gh-issue to try the new issue-drafting tool"
 echo ""
