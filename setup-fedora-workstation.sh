@@ -1302,6 +1302,8 @@ info "Recommended: set RDP client resolution to 1920x1080 (4K causes rendering i
 section "16/$TOTAL_STEPS — Installing Scripts into ~/.local/bin"
 WB_REPO="$REPOS_DIR/workstation-bootstrap"
 if [[ -d "$WB_REPO" ]]; then
+  # Pull latest so re-runs pick up updated install-scripts.sh (e.g. after a fix)
+  git -C "$WB_REPO" pull --ff-only --quiet 2>/dev/null || true
   bash "$WB_REPO/bootstrap/install-scripts.sh"
   success "Scripts installed."
 else
