@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || {
-    echo "error: not inside a git repository" >&2
-    exit 1
-}
+SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
+REPO_ROOT=$(dirname "$SCRIPT_DIR")
 
 SCRIPTS_DIR="$REPO_ROOT/scripts"
 BIN_DIR="$HOME/.local/bin"
