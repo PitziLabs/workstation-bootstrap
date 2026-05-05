@@ -1152,10 +1152,14 @@ STARSHIP_CONF
 success "Starship config written."
 
 # --- 15. Install scripts into ~/.local/bin ----------------------------------
-SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
 section "15/$TOTAL_STEPS — Installing Scripts into ~/.local/bin"
-bash "$SCRIPT_DIR/bootstrap/install-scripts.sh"
-success "Scripts installed."
+WB_REPO="$REPOS_DIR/workstation-bootstrap"
+if [[ -d "$WB_REPO" ]]; then
+  bash "$WB_REPO/bootstrap/install-scripts.sh"
+  success "Scripts installed."
+else
+  warn "workstation-bootstrap not found at $WB_REPO — skipping script installation"
+fi
 
 # ============================================================================
 section "🎉 Setup Complete!"
